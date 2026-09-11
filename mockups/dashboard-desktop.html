@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kioku · command center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E0D0B; --panel:#151109; --panel-2:#1B160D; --raise:#221B10;
+    --line:rgba(240,226,200,.085); --line-2:rgba(240,226,200,.14);
+    --text:#EBE5D7; --muted:#8C8576; --dim:#5E5A4E;
+    --ember:#E9A64D; --ember-2:#F0B968; --ember-soft:rgba(233,166,77,.13);
+    --indigo:#8A93C6; --sage:#93AC8C; --rose:#C98A72;
+    --serif:'Instrument Serif',Georgia,serif;
+    --sans:'Inter',system-ui,sans-serif;
+    --mono:'Space Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 78% -10%, rgba(233,166,77,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(138,147,198,.05), transparent 55%),
+      var(--ink);
+    color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .eyebrow{font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
+  .mono{font-family:var(--mono)}
+  .num{font-family:var(--serif); font-weight:400; letter-spacing:.01em}
+
+  /* shell */
+  .app{max-width:1360px; margin:0 auto; padding:20px 22px 30px}
+  header{
+    display:flex; align-items:center; gap:20px; padding:6px 4px 18px;
+    border-bottom:1px solid var(--line); margin-bottom:20px;
+  }
+  .brand{display:flex; align-items:center; gap:12px}
+  .lantern{position:relative; width:12px; height:12px; border-radius:50%; background:var(--ember);
+    box-shadow:0 0 0 0 rgba(233,166,77,.5); animation:breathe 4.2s ease-in-out infinite}
+  @keyframes breathe{
+    0%,100%{box-shadow:0 0 10px 1px rgba(233,166,77,.55); opacity:.95}
+    50%{box-shadow:0 0 22px 5px rgba(233,166,77,.28); opacity:.7}
+  }
+  .wordmark{font-family:var(--serif); font-size:27px; letter-spacing:.04em; line-height:1}
+  .seal{font-family:var(--mono); font-size:12px; color:var(--dim); letter-spacing:.24em; margin-left:9px; align-self:center}
+  .status{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.06em}
+  .status b{color:var(--ember-2); font-weight:400}
+  .spacer{flex:1}
+  .chip{
+    display:inline-flex; align-items:center; gap:8px; padding:6px 11px; border:1px solid var(--line-2);
+    border-radius:100px; font-family:var(--mono); font-size:11px; letter-spacing:.04em; color:var(--muted);
+  }
+  .chip .dot{width:6px; height:6px; border-radius:50%; background:var(--sage)}
+  .chip b{color:var(--text); font-weight:400}
+  .clock{font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.08em}
+
+  /* grid */
+  .grid{display:grid; grid-template-columns:1.08fr 1.35fr 1fr; gap:16px; align-items:start}
+  .col{display:flex; flex-direction:column; gap:16px; min-width:0}
+  .panel{background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--line);
+    border-radius:14px; padding:16px 16px 14px; position:relative}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+  .panel-head .eyebrow{color:var(--muted)}
+  .count{font-family:var(--mono); font-size:10px; color:var(--dim)}
+
+  /* conversation */
+  .convo{height:100%; display:flex; flex-direction:column; min-height:560px}
+  .thread{display:flex; flex-direction:column; gap:14px; flex:1; overflow:hidden}
+  .msg{max-width:88%}
+  .msg.you{align-self:flex-end; text-align:right}
+  .bubble{display:inline-block; padding:9px 13px; border-radius:12px; font-size:13.5px; line-height:1.5}
+  .you .bubble{background:var(--raise); border:1px solid var(--line); border-bottom-right-radius:4px}
+  .kioku .bubble{background:transparent; border:1px solid var(--line); border-bottom-left-radius:4px; color:var(--text)}
+  .meta{margin-top:5px; font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; color:var(--dim)}
+  .tag{color:var(--muted)}
+  .tag.recall{color:var(--indigo)} .tag.draft{color:var(--ember-2)} .tag.research{color:var(--sage)}
+  .typing .bubble{color:var(--muted)}
+  .cursor{display:inline-block; width:7px; height:15px; background:var(--ember); margin-left:2px;
+    vertical-align:-2px; animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .composer{margin-top:14px; display:flex; align-items:center; gap:10px; border:1px solid var(--line-2);
+    border-radius:11px; padding:10px 12px; background:var(--ink)}
+  .composer input{flex:1; background:transparent; border:0; color:var(--text); font-family:var(--sans); font-size:13.5px; outline:none}
+  .composer input::placeholder{color:var(--dim)}
+  .send{font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--muted); border:1px solid var(--line-2);
+    padding:5px 9px; border-radius:7px; background:transparent}
+
+  /* runs */
+  .run{padding:11px 0; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px}
+  .run:last-child{border-bottom:0}
+  .run .name{flex:1; min-width:0}
+  .run .title{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .run .sub{margin-top:3px; font-family:var(--mono); font-size:10px; letter-spacing:.04em; color:var(--dim)}
+  .badge{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+    padding:3px 7px; border-radius:6px; border:1px solid var(--line-2); color:var(--muted)}
+  .badge.live{color:var(--ember-2); border-color:rgba(233,166,77,.4); background:var(--ember-soft)}
+  .cost{font-family:var(--mono); font-size:11px; color:var(--muted)}
+  .heartbeat{height:2px; border-radius:2px; margin-top:8px; overflow:hidden; background:rgba(233,166,77,.14)}
+  .heartbeat i{display:block; height:100%; width:38%; border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--ember),transparent); animation:hb 1.6s ease-in-out infinite}
+  @keyframes hb{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+
+  /* feed */
+  .feed-item{display:flex; gap:11px; padding:9px 0; border-bottom:1px solid var(--line); align-items:baseline}
+  .feed-item:last-child{border-bottom:0}
+  .feed-item .ic{font-size:13px; width:16px; text-align:center}
+  .feed-item .tx{flex:1; font-size:13px}
+  .feed-item .tx b{font-weight:600}
+  .feed-item .when{font-family:var(--mono); font-size:9.5px; color:var(--dim); letter-spacing:.06em; white-space:nowrap}
+  .feed-item.off .tx{color:var(--dim)}
+
+  /* budget */
+  .budget-top{display:flex; align-items:flex-end; justify-content:space-between; gap:10px}
+  .big{font-family:var(--serif); font-size:52px; line-height:.9}
+  .budget-sub{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.03em; margin-top:6px}
+  .mode-ok{color:var(--sage)}
+  .spark{margin-top:14px; height:44px; width:100%}
+  .tiers{display:flex; gap:6px; margin-top:12px}
+  .tier{flex:1; text-align:center; font-family:var(--mono); font-size:9px; letter-spacing:.06em; color:var(--dim);
+    border:1px solid var(--line); border-radius:7px; padding:6px 2px}
+  .tier b{display:block; color:var(--muted); font-size:11px; margin-bottom:2px}
+  .tier.hot b{color:var(--ember-2)}
+
+  /* approvals */
+  .gate{border:1px solid var(--line-2); border-radius:10px; padding:11px 12px; margin-bottom:10px; background:var(--ink)}
+  .gate:last-child{margin-bottom:0}
+  .gate .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+  .gate .v{font-size:13.5px; margin:5px 0 3px}
+  .gate .hint{font-family:var(--mono); font-size:10px; color:var(--dim)}
+  .gate-actions{display:flex; gap:8px; margin-top:10px}
+  button.act{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; padding:7px 12px; border-radius:8px;
+    border:1px solid var(--line-2); background:transparent; color:var(--muted); cursor:pointer; transition:.16s}
+  button.act.primary{color:var(--ink); background:var(--ember); border-color:var(--ember)}
+  button.act.primary:hover{background:var(--ember-2)}
+  button.act:hover{border-color:var(--line-2); color:var(--text)}
+  .gate.done{opacity:.5}
+  .gate.done .gate-actions{display:none}
+  .gate .settled{display:none; font-family:var(--mono); font-size:10px; color:var(--sage); margin-top:9px; letter-spacing:.05em}
+  .gate.done .settled{display:block}
+
+  /* skills */
+  .skill{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
+  .skill:last-child{border-bottom:0}
+  .skill .sd{width:6px; height:6px; border-radius:50%; background:var(--indigo)}
+  .skill .sn{flex:1; font-family:var(--mono); font-size:12px; letter-spacing:.02em}
+  .skill.proposed .sd{background:var(--ember); box-shadow:0 0 8px rgba(233,166,77,.6)}
+  .skill.proposed .sn{color:var(--ember-2)}
+  .skill small{font-family:var(--mono); font-size:9px; color:var(--dim); letter-spacing:.06em}
+  .mini{font-family:var(--mono); font-size:9.5px; letter-spacing:.06em; color:var(--muted); border:1px solid var(--line-2);
+    padding:4px 8px; border-radius:6px; background:transparent; cursor:pointer}
+  .mini.primary{color:var(--ember-2); border-color:rgba(233,166,77,.4)}
+
+  /* brain graph */
+  .graph{margin-top:16px}
+  .graph .count b{color:var(--text); font-weight:400; font-family:var(--serif); font-size:15px}
+  .graph-wrap{position:relative; height:300px; border-radius:10px; overflow:hidden;
+    background:radial-gradient(700px 300px at 50% 120%, rgba(138,147,198,.06), transparent 70%)}
+  #brain{width:100%; height:100%; display:block}
+  .legend{position:absolute; left:14px; bottom:12px; display:flex; gap:16px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{width:7px; height:7px; border-radius:50%; display:inline-block}
+
+  .footnote{margin-top:22px; text-align:center; font-family:var(--mono); font-size:10px; color:var(--dim); letter-spacing:.06em}
+
+  @media (max-width:1040px){ .grid{grid-template-columns:1fr} .convo{min-height:auto} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="lantern" title="awake"></span>
+      <span class="wordmark">Kioku</span><span class="seal">記憶</span>
+    </div>
+    <span class="status">is <b>awake</b> · watching 6 signals</span>
+    <span class="spacer"></span>
+    <span class="chip"><span class="dot"></span> budget <b>normal</b> · $6.40 left</span>
+    <span class="clock">MON · 11:42</span>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT · conversation (reactive loop) -->
+    <div class="col">
+      <div class="panel convo">
+        <div class="panel-head"><span class="eyebrow">Conversation</span><span class="count">today</span></div>
+        <div class="thread">
+          <div class="msg you"><span class="bubble">how's acme looking this week?</span></div>
+          <div class="msg kioku">
+            <span class="bubble">Signups up 18% (41 new), no Sentry errors since Thu, Stripe steady. Celery queue clean. Full note in <span class="mono" style="color:var(--indigo)">projects/acme/pulse.md</span>.</span>
+            <div class="meta"><span class="tag recall">recall</span> · haiku · $0.004 · 2.1s</div>
+          </div>
+          <div class="msg you"><span class="bubble">draft a follow-up to the OneHire recruiter</span></div>
+          <div class="msg kioku typing">
+            <span class="bubble">Pulling the thread and your notes on OneHire… drafting<span class="cursor"></span></span>
+            <div class="meta"><span class="tag draft">draft</span> · sonnet · streaming</div>
+          </div>
+        </div>
+        <div class="composer">
+          <input placeholder="Talk to Kioku — ask, plan, capture, automate…" />
+          <span class="send">SEND ↵</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER · runs + proactive feed -->
+    <div class="col">
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Live runs</span><span class="count">4 today · $0.35</span></div>
+        <div class="run">
+          <div class="name">
+            <div class="title">Draft recruiter follow-up</div>
+            <div class="sub">orchestrator → 1 agent · vault + people</div>
+            <div class="heartbeat"><i></i></div>
+          </div>
+          <span class="badge live">running</span>
+          <span class="cost">$0.02</span>
+        </div>
+        <div class="run">
+          <div class="name"><div class="title">Research: pgvector index for 1M vectors</div>
+            <div class="sub">sonnet · 3 sources · filed to vault</div></div>
+          <span class="badge">done</span><span class="cost">$0.041</span>
+        </div>
+        <div class="run">
+          <div class="name"><div class="title">Capture: onboarding idea</div>
+            <div class="sub">haiku · filed to inbox/</div></div>
+          <span class="badge">done</span><span class="cost">$0.00</span>
+        </div>
+        <div class="run">
+          <div class="name"><div class="title">Fix Celery retry backoff</div>
+            <div class="sub">opus · 1 write awaiting approval →</div></div>
+          <span class="badge">done</span><span class="cost">$0.31</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Activity</span><span class="count">proactive</span></div>
+        <div class="feed-item"><span class="ic">⏰</span><span class="tx"><b>Cybersec exam</b> — due in 2 days <span class="mono" style="color:var(--dim)">areas/study.md</span></span><span class="when">07:30</span></div>
+        <div class="feed-item"><span class="ic">☀️</span><span class="tx">Morning brief posted — 3 things worth your attention</span><span class="when">07:00</span></div>
+        <div class="feed-item"><span class="ic">📥</span><span class="tx">Captured <b>idea</b> → app onboarding flow</span><span class="when">yest</span></div>
+        <div class="feed-item"><span class="ic">💳</span><span class="tx">Credit at 68% — still <b>normal</b> mode</span><span class="when">yest</span></div>
+        <div class="feed-item off"><span class="ic">○</span><span class="tx">Gmail — not connected <span class="mono">(enable in connectors)</span></span><span class="when">—</span></div>
+      </div>
+    </div>
+
+    <!-- RIGHT · budget (governor) + approvals + skills (learning) -->
+    <div class="col">
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Agent credit</span><span class="count mode-ok">normal</span></div>
+        <div class="budget-top">
+          <div><div class="big">$6.40</div><div class="budget-sub">left this cycle</div></div>
+          <div style="text-align:right"><div class="mono" style="font-size:12px;color:var(--muted)">$13.60</div>
+            <div class="budget-sub">of $20 used</div></div>
+        </div>
+        <svg class="spark" viewBox="0 0 240 44" preserveAspectRatio="none">
+          <polyline fill="none" stroke="var(--ember)" stroke-width="1.5"
+            points="0,40 20,38 40,39 60,34 80,33 100,29 120,28 140,24 160,23 180,19 200,17 220,13 240,11"/>
+          <polyline fill="rgba(233,166,77,.08)" stroke="none"
+            points="0,44 0,40 20,38 40,39 60,34 80,33 100,29 120,28 140,24 160,23 180,19 200,17 220,13 240,11 240,44"/>
+        </svg>
+        <div class="tiers">
+          <div class="tier"><b>haiku</b>$2.10</div>
+          <div class="tier"><b>sonnet</b>$4.80</div>
+          <div class="tier hot"><b>opus</b>$6.70</div>
+          <div class="tier"><b>fable</b>—</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Waiting for you</span><span class="count">2</span></div>
+        <div class="gate">
+          <div class="k">Write · needs approval</div>
+          <div class="v">projects/acme/seo-plan.md</div>
+          <div class="hint">2.4 KB · sha 9f3ac1 · from "Fix Celery" run</div>
+          <div class="gate-actions">
+            <button class="act primary" onclick="settle(this,'Applied · indexed')">Apply</button>
+            <button class="act" onclick="settle(this,'Discarded')">Discard</button>
+          </div>
+          <div class="settled">✓ done</div>
+        </div>
+        <div class="gate">
+          <div class="k">Message · send gate</div>
+          <div class="v">Reply to OneHire recruiter</div>
+          <div class="hint">draft ready · nothing sends without you</div>
+          <div class="gate-actions">
+            <button class="act primary" onclick="settle(this,'Sent')">Review &amp; send</button>
+            <button class="act" onclick="settle(this,'Held')">Hold</button>
+          </div>
+          <div class="settled">✓ done</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Skills</span><span class="count">learned · 3</span></div>
+        <div class="skill"><span class="sd"></span><span class="sn">acme-pulse</span><small>used 6×</small></div>
+        <div class="skill"><span class="sd"></span><span class="sn">date-night-planner</span><small>used 2×</small></div>
+        <div class="skill"><span class="sd"></span><span class="sn">meeting-prep</span><small>used 4×</small></div>
+        <div class="skill proposed">
+          <span class="sd"></span>
+          <span class="sn">weekly-recruiter-followup<br><small>proposed from this week's work</small></span>
+          <button class="mini primary" onclick="this.textContent='added ✓';this.disabled=true">Activate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel graph">
+    <div class="panel-head">
+      <span class="eyebrow">Knowledge graph · living</span>
+      <span class="count"><b>312</b> notes · <b>1,847</b> links · <span style="color:var(--ember-2)">+23 this week</span></span>
+    </div>
+    <div class="graph-wrap">
+      <canvas id="brain"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--indigo)"></i>Acme</span>
+        <span><i style="background:var(--sage)"></i>Studies</span>
+        <span><i style="background:var(--text)"></i>People</span>
+        <span><i style="background:var(--rose)"></i>Ideas</span>
+        <span><i style="background:var(--ember)"></i>new this week</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">Kioku · 記憶 — a memory that never sleeps · static mockup, sample data</div>
+</div>
+<script>
+  function settle(btn, label){
+    var gate = btn.closest('.gate');
+    gate.classList.add('done');
+    gate.querySelector('.settled').textContent = '✓ ' + label;
+  }
+
+  // ---- living knowledge graph ----
+  (function(){
+    var cv = document.getElementById('brain'); if(!cv) return;
+    var ctx = cv.getContext('2d'), DPR = Math.min(window.devicePixelRatio||1, 2);
+    var css = getComputedStyle(document.documentElement);
+    var COL = {
+      Acme: css.getPropertyValue('--indigo').trim(),
+      Studies:   css.getPropertyValue('--sage').trim(),
+      People:    css.getPropertyValue('--text').trim(),
+      Ideas:     css.getPropertyValue('--rose').trim(),
+      Kioku:    css.getPropertyValue('--muted').trim()
+    };
+    var EMBER = css.getPropertyValue('--ember').trim();
+    var clusters = Object.keys(COL);
+    var W,H, nodes=[], links=[];
+    function size(){ var r=cv.getBoundingClientRect(); W=r.width; H=r.height; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+    function build(){
+      nodes=[]; links=[];
+      var centers = clusters.map(function(_,i){ var a=(i/clusters.length)*Math.PI*2;
+        return {x: W/2 + Math.cos(a)*W*0.24, y: H/2 + Math.sin(a)*H*0.30}; });
+      clusters.forEach(function(cl,ci){
+        var n = 7 + Math.floor(Math.random()*5);
+        for(var i=0;i<n;i++){
+          var isNew = Math.random()<0.13;
+          nodes.push({ cl:cl, c:COL[cl], x:centers[ci].x+(Math.random()-.5)*80, y:centers[ci].y+(Math.random()-.5)*80,
+            vx:0, vy:0, cx:centers[ci].x, cy:centers[ci].y, r: isNew?3.4:(1.6+Math.random()*2), nw:isNew, ph:Math.random()*6.28 });
+        }
+      });
+      for(var i=0;i<nodes.length;i++){
+        var links_i = 1+Math.floor(Math.random()*2);
+        for(var k=0;k<links_i;k++){
+          var j = Math.floor(Math.random()*nodes.length);
+          if(j!==i) links.push([i,j, nodes[i].cl===nodes[j].cl?0.22:0.07]);
+        }
+      }
+    }
+    var t=0;
+    function step(){
+      t+=0.016;
+      for(var i=0;i<nodes.length;i++){ var p=nodes[i];
+        p.vx += (p.cx-p.x)*0.0009; p.vy += (p.cy-p.y)*0.0009;      // drift home
+        p.vx += Math.cos(t*0.5+p.ph)*0.006; p.vy += Math.sin(t*0.4+p.ph)*0.006; // ambient
+        p.vx*=0.94; p.vy*=0.94; p.x+=p.vx; p.y+=p.vy;
+      }
+      ctx.clearRect(0,0,W,H);
+      for(var l=0;l<links.length;l++){ var a=nodes[links[l][0]], b=nodes[links[l][1]];
+        ctx.strokeStyle='rgba(235,229,215,'+links[l][2]*0.5+')'; ctx.lineWidth=0.6;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      for(var i=0;i<nodes.length;i++){ var p=nodes[i];
+        if(p.nw){ var g=0.5+0.5*Math.sin(t*2+p.ph); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4*g,0,6.28);
+          ctx.fillStyle='rgba(233,166,77,'+(0.12*g)+')'; ctx.fill(); }
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fillStyle=p.nw?EMBER:p.c; ctx.globalAlpha=p.nw?1:0.85; ctx.fill(); ctx.globalAlpha=1;
+      }
+      raf=requestAnimationFrame(step);
+    }
+    var raf; function start(){ cancelAnimationFrame(raf); size(); build(); step(); }
+    window.addEventListener('resize', start); start();
+  })();
+</script>
+</body>
+</html>
