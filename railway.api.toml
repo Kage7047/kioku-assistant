@@ -1,0 +1,13 @@
+# Point the API service's "Config File Path" here (Railway → service → Settings).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Wrap in `sh -c` so $PORT is shell-expanded (Railway execs the command directly, so a bare
+# `--port $PORT` reaches uvicorn as the literal string "$PORT"). Falls back to 8000 locally.
+startCommand = "sh -c 'uvicorn kioku.api.main:app --host 0.0.0.0 --port ${PORT:-8000}'"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

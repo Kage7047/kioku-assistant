@@ -1,0 +1,14 @@
+# Keep secrets and bulky/irrelevant paths out of the build context and image layers.
+.env
+.env.*
+vault/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.venv/
+*.zip
+docs/
+mockups/
+.pytest_cache/
+.ruff_cache/
