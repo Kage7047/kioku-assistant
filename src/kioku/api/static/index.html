@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kioku · command center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E0D0B; --panel:#151109; --panel-2:#1B160D; --raise:#221B10;
+    --line:rgba(240,226,200,.085); --line-2:rgba(240,226,200,.14);
+    --text:#EBE5D7; --muted:#8C8576; --dim:#5E5A4E;
+    --ember:#E9A64D; --ember-2:#F0B968; --ember-soft:rgba(233,166,77,.13);
+    --indigo:#8A93C6; --sage:#93AC8C; --rose:#C98A72;
+    --serif:'Instrument Serif',Georgia,serif;
+    --sans:'Inter',system-ui,sans-serif;
+    --mono:'Space Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 78% -10%, rgba(233,166,77,.06), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(138,147,198,.05), transparent 55%),
+      var(--ink);
+    color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .eyebrow{font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted)}
+  .mono{font-family:var(--mono)}
+  .num{font-family:var(--serif); font-weight:400; letter-spacing:.01em}
+
+  .app{max-width:1360px; margin:0 auto; padding:20px 22px 30px}
+  header{display:flex; align-items:center; gap:20px; padding:6px 4px 18px;
+    border-bottom:1px solid var(--line); margin-bottom:20px;}
+  .brand{display:flex; align-items:center; gap:12px}
+  .lantern{position:relative; width:12px; height:12px; border-radius:50%; background:var(--ember);
+    box-shadow:0 0 0 0 rgba(233,166,77,.5); animation:breathe 4.2s ease-in-out infinite}
+  @keyframes breathe{
+    0%,100%{box-shadow:0 0 10px 1px rgba(233,166,77,.55); opacity:.95}
+    50%{box-shadow:0 0 22px 5px rgba(233,166,77,.28); opacity:.7} }
+  .wordmark{font-family:var(--serif); font-size:27px; letter-spacing:.04em; line-height:1}
+  .seal{font-family:var(--mono); font-size:12px; color:var(--dim); letter-spacing:.24em; margin-left:9px; align-self:center}
+  .status{font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.06em}
+  .status b{color:var(--ember-2); font-weight:400}
+  .spacer{flex:1}
+  .chip{display:inline-flex; align-items:center; gap:8px; padding:6px 11px; border:1px solid var(--line-2);
+    border-radius:100px; font-family:var(--mono); font-size:11px; letter-spacing:.04em; color:var(--muted); cursor:pointer}
+  .chip .dot{width:6px; height:6px; border-radius:50%; background:var(--sage)}
+  .chip.warn .dot{background:var(--ember)} .chip.bad .dot{background:var(--rose)}
+  .chip b{color:var(--text); font-weight:400}
+  .clock{font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:.08em}
+
+  .grid{display:grid; grid-template-columns:1.55fr 1.2fr 0.95fr; gap:16px; align-items:start}
+  .col{display:flex; flex-direction:column; gap:16px; min-width:0}
+  .panel{background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--line);
+    border-radius:14px; padding:16px 16px 14px; position:relative}
+  .panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+  .panel-head .eyebrow{color:var(--muted)}
+  .count{font-family:var(--mono); font-size:10px; color:var(--dim)}
+
+  .convo{height:100%; display:flex; flex-direction:column; min-height:720px}
+  .thread{display:flex; flex-direction:column; gap:14px; flex:1; overflow-y:auto; max-height:680px; padding-right:4px}
+  .msg{max-width:90%}
+  .msg.you{align-self:flex-end; text-align:right}
+  .bubble{display:inline-block; padding:10px 14px; border-radius:12px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; text-align:left}
+  .bubble a{color:var(--ember-2)} .bubble code{font-family:var(--mono); font-size:12.5px; background:var(--ink); padding:1px 5px; border-radius:5px}
+  .bubble pre{font-family:var(--mono); font-size:12px; background:var(--ink); padding:9px 11px; border-radius:8px; overflow-x:auto; border:1px solid var(--line)}
+  .you .bubble{background:var(--raise); border:1px solid var(--line); border-bottom-right-radius:4px}
+  .kioku .bubble{background:transparent; border:1px solid var(--line); border-bottom-left-radius:4px; color:var(--text)}
+  .meta{margin-top:5px; font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; color:var(--dim)}
+  .tag{color:var(--muted)}
+  .tag.recall{color:var(--indigo)} .tag.draft{color:var(--ember-2)} .tag.research{color:var(--sage)}
+  .cursor{display:inline-block; width:7px; height:15px; background:var(--ember); margin-left:2px;
+    vertical-align:-2px; animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .composer{margin-top:14px; display:flex; align-items:center; gap:10px; border:1px solid var(--line-2);
+    border-radius:11px; padding:10px 12px; background:var(--ink)}
+  .composer input{flex:1; background:transparent; border:0; color:var(--text); font-family:var(--sans); font-size:13.5px; outline:none}
+  .composer input::placeholder{color:var(--dim)}
+  .send{font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--muted); border:1px solid var(--line-2);
+    padding:5px 9px; border-radius:7px; background:transparent; cursor:pointer}
+  .quick{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap}
+  .quick button{font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--muted);
+    border:1px solid var(--line); padding:5px 9px; border-radius:7px; background:transparent; cursor:pointer}
+  .quick button:hover{border-color:var(--line-2); color:var(--text)}
+
+  .run{padding:11px 0; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px}
+  .run:last-child{border-bottom:0}
+  .run .name{flex:1; min-width:0}
+  .run .title{font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .run .sub{margin-top:3px; font-family:var(--mono); font-size:10px; letter-spacing:.04em; color:var(--dim)}
+  .badge{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+    padding:3px 7px; border-radius:6px; border:1px solid var(--line-2); color:var(--muted)}
+  .badge.live{color:var(--ember-2); border-color:rgba(233,166,77,.4); background:var(--ember-soft)}
+  .badge.error{color:var(--rose); border-color:rgba(201,138,114,.4)}
+  .cost{font-family:var(--mono); font-size:11px; color:var(--muted)}
+  .heartbeat{height:2px; border-radius:2px; margin-top:8px; overflow:hidden; background:rgba(233,166,77,.14)}
+  .heartbeat i{display:block; height:100%; width:38%; border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--ember),transparent); animation:hb 1.6s ease-in-out infinite}
+  @keyframes hb{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+
+  .feed-item{display:flex; gap:11px; padding:9px 0; border-bottom:1px solid var(--line); align-items:baseline}
+  .feed-item:last-child{border-bottom:0}
+  .feed-item .ic{font-size:13px; width:16px; text-align:center}
+  .feed-item .tx{flex:1; font-size:13px}
+  .feed-item .tx b{font-weight:600}
+  .feed-item .when{font-family:var(--mono); font-size:9.5px; color:var(--dim); letter-spacing:.06em; white-space:nowrap}
+  .feed-item.off .tx{color:var(--dim)}
+
+  .budget-top{display:flex; align-items:flex-end; justify-content:space-between; gap:10px}
+  .big{font-family:var(--serif); font-size:52px; line-height:.9}
+  .budget-sub{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.03em; margin-top:6px}
+  .mode-ok{color:var(--sage)} .mode-warn{color:var(--ember-2)} .mode-bad{color:var(--rose)}
+  .spark{margin-top:14px; height:44px; width:100%}
+  .tiers{display:flex; gap:6px; margin-top:12px}
+  .tier{flex:1; text-align:center; font-family:var(--mono); font-size:9px; letter-spacing:.06em; color:var(--dim);
+    border:1px solid var(--line); border-radius:7px; padding:6px 2px}
+  .tier b{display:block; color:var(--muted); font-size:11px; margin-bottom:2px}
+  .tier.hot b{color:var(--ember-2)}
+
+  .gate{border:1px solid var(--line-2); border-radius:10px; padding:11px 12px; margin-bottom:10px; background:var(--ink)}
+  .gate:last-child{margin-bottom:0}
+  .gate .k{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+  .gate .v{font-size:13.5px; margin:5px 0 3px; word-break:break-all}
+  .gate .hint{font-family:var(--mono); font-size:10px; color:var(--dim)}
+  .gate-actions{display:flex; gap:8px; margin-top:10px}
+  button.act{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; padding:7px 12px; border-radius:8px;
+    border:1px solid var(--line-2); background:transparent; color:var(--muted); cursor:pointer; transition:.16s}
+  button.act.primary{color:var(--ink); background:var(--ember); border-color:var(--ember)}
+  button.act.primary:hover{background:var(--ember-2)}
+  button.act:hover{border-color:var(--line-2); color:var(--text)}
+
+  .skill{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
+  .skill:last-child{border-bottom:0}
+  .skill .sd{width:6px; height:6px; border-radius:50%; background:var(--indigo)}
+  .skill .sn{flex:1; font-family:var(--mono); font-size:12px; letter-spacing:.02em}
+  .skill small{font-family:var(--mono); font-size:9px; color:var(--dim); letter-spacing:.06em}
+
+  .graph{margin-top:16px}
+  .graph .count b{color:var(--text); font-weight:400; font-family:var(--serif); font-size:15px}
+  .graph-wrap{position:relative; height:300px; border-radius:10px; overflow:hidden;
+    background:radial-gradient(700px 300px at 50% 120%, rgba(138,147,198,.06), transparent 70%)}
+  #brain{width:100%; height:100%; display:block}
+  .legend{position:absolute; left:14px; bottom:12px; display:flex; gap:16px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{width:7px; height:7px; border-radius:50%; display:inline-block}
+  .footnote{margin-top:22px; text-align:center; font-family:var(--mono); font-size:10px; color:var(--dim); letter-spacing:.06em}
+  .muted{color:var(--muted)}
+
+  /* token gate */
+  #gate{position:fixed; inset:0; background:rgba(9,11,16,.94); display:none; align-items:center; justify-content:center; z-index:30}
+  #gate .box{background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--line-2);
+    border-radius:14px; padding:26px; width:340px}
+  #gate .wordmark{font-family:var(--serif); font-size:26px}
+  #gate input{width:100%; margin-top:14px; background:var(--ink); border:1px solid var(--line-2); border-radius:9px;
+    padding:10px 12px; color:var(--text); font-family:var(--mono); outline:none}
+  #gate button{width:100%; margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:.06em;
+    padding:10px; border-radius:9px; border:1px solid var(--ember); background:var(--ember); color:var(--ink); cursor:pointer}
+
+  @media (max-width:1040px){ .grid{grid-template-columns:1fr} .convo{min-height:auto} }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="lantern" title="awake"></span>
+      <span class="wordmark">Kioku</span><span class="seal">記憶</span>
+    </div>
+    <span class="status" id="status">is <b>awake</b></span>
+    <span class="spacer"></span>
+    <span class="chip" id="budgetChip" onclick="refresh()"><span class="dot"></span> <span id="chipText">budget —</span></span>
+    <span class="chip" id="powerChip" onclick="togglePause()" title="turn Kioku on/off"><span class="dot"></span> <span id="powerText">on</span></span>
+    <span class="clock" id="clock"></span>
+    <span class="chip" onclick="logout()" title="change token">token</span>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT · conversation -->
+    <div class="col">
+      <div class="panel convo">
+        <div class="panel-head"><span class="eyebrow">Conversation</span><span class="count">live</span></div>
+        <div class="thread" id="thread"></div>
+        <div class="composer">
+          <input type="file" id="file" multiple style="display:none" onchange="uploadFiles(this.files)" />
+          <span class="send" id="attach" title="attach files to learn from" onclick="document.getElementById('file').click()" style="border:0;padding:5px 6px;font-size:14px">📎</span>
+          <input id="msg" placeholder="Talk to Kioku — ask, plan, capture, automate…" />
+          <span class="send" onclick="send()">SEND ↵</span>
+        </div>
+        <div class="quick">
+          <button onclick="cmd('audit the vault','vault_audit')">/audit</button>
+          <button onclick="cmd('organize the vault')">organize</button>
+          <button onclick="cmd('opportunities')">🎯 jobs</button>
+          <button onclick="cmd('learn')">🧠 learn</button>
+          <button onclick="cmd('introspect')">🔍 review</button>
+          <button onclick="cmd('reindex')">reindex</button>
+          <button onclick="refresh()">↻ refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER · runs + activity -->
+    <div class="col">
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Live runs</span><span class="count" id="runsCount">—</span></div>
+        <div id="runs"><div class="muted">loading…</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Activity</span><span class="count">connectors &amp; signals</span></div>
+        <div id="feed"><div class="muted">—</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT · budget + approvals + skills -->
+    <div class="col">
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Agent credit</span><span class="count" id="modeLabel">—</span></div>
+        <div class="budget-top">
+          <div><div class="big" id="bLeft">—</div><div class="budget-sub">left this cycle</div></div>
+          <div style="text-align:right"><div class="mono" style="font-size:12px;color:var(--muted)" id="bUsed">—</div>
+            <div class="budget-sub" id="bCredit">of $20 used</div></div>
+        </div>
+        <svg class="spark" viewBox="0 0 240 44" preserveAspectRatio="none">
+          <polyline id="sparkLine" fill="none" stroke="var(--ember)" stroke-width="1.5" points=""/>
+          <polyline id="sparkFill" fill="rgba(233,166,77,.08)" stroke="none" points=""/>
+        </svg>
+        <div class="tiers" id="tiers"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Waiting for you</span><span class="count" id="gatesCount">0</span></div>
+        <div id="gates"><div class="muted">nothing pending</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Skills</span><span class="count" id="skillsCount">—</span></div>
+        <div id="skills"><div class="muted">—</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">Scheduled</span><span class="count" id="schedCount">—</span></div>
+        <div id="sched"><div class="muted">—</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="eyebrow">People</span><span class="count" id="peopleCount">—</span></div>
+        <div id="people"><div class="muted">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel graph">
+    <div class="panel-head">
+      <span class="eyebrow">Knowledge graph · living</span>
+      <span class="count" id="graphCount">—</span>
+    </div>
+    <div class="graph-wrap">
+      <canvas id="brain"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--indigo)"></i>reference</span>
+        <span><i style="background:var(--sage)"></i>projects</span>
+        <span><i style="background:var(--text)"></i>inbox</span>
+        <span><i style="background:var(--rose)"></i>orphans</span>
+        <span><i style="background:var(--ember)"></i>fresh</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote">Kioku · 記憶 — a memory that never sleeps</div>
+</div>
+
+<div id="gate"><div class="box">
+  <div class="wordmark">Kioku <span class="seal">記憶</span></div>
+  <p class="muted mono" style="font-size:11px;margin:10px 0 0">enter DASHBOARD_TOKEN</p>
+  <input id="tok" type="password" placeholder="token" onkeydown="if(event.key==='Enter')saveTok()">
+  <button onclick="saveTok()">UNLOCK</button>
+</div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let TOKEN = localStorage.getItem('kioku_token') || '';
+let PAUSED = false;
+
+// Render Kioku's markdown-ish answers as safe HTML (escape first, then bold/links/code/bullets).
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mdToHtml(t){
+  if(!t) return '';
+  var keep=[]; var A='\uE000', B='\uE001';
+  t=t.replace(/```[a-zA-Z0-9_+-]*\n?([\s\S]*?)```/g,function(m,c){keep.push('<pre>'+esc(c.replace(/\n+$/,''))+'</pre>');return A+(keep.length-1)+B;});
+  t=t.replace(/`([^`\n]+)`/g,function(m,c){keep.push('<code>'+esc(c)+'</code>');return A+(keep.length-1)+B;});
+  t=esc(t);
+  t=t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t=t.replace(/^\s{0,3}#{1,6}\s+(.+?)\s*#*$/gm,'<b>$1</b>');
+  t=t.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  t=t.replace(/^(\s*)[-*]\s+/gm,'$1\u2022 ');
+  t=t.replace(new RegExp(A+'(\d+)'+B,'g'),function(m,i){return keep[+i];});
+  return t;
+}
+async function togglePause(){
+  const goingDown = !PAUSED;
+  if(goingDown && !confirm('Pause Kioku? It stops running and spending until you resume.')) return;
+  try{ await api(goingDown?'/pause':'/resume',{method:'POST'}); }catch(e){}
+  refresh();
+}
+const MODELTIER = {
+  'triage':'haiku','claude-haiku-4-5':'haiku',
+  'work':'sonnet','claude-sonnet-5':'sonnet',
+  'orchestrator':'opus','claude-opus-4-8':'opus',
+  'hard':'fable','claude-fable-5':'fable','ask':'sonnet'
+};
+
+function authHeaders(){ return TOKEN ? {'Authorization':'Bearer '+TOKEN} : {}; }
+async function api(path, opts={}){
+  const r = await fetch(path, {...opts, headers:{...(opts.headers||{}), ...authHeaders()}});
+  if(r.status===401){ showGate(); throw new Error('unauthorized'); }
+  return r;
+}
+function showGate(){ $('#gate').style.display='flex'; }
+function saveTok(){ TOKEN=$('#tok').value.trim(); localStorage.setItem('kioku_token',TOKEN);
+  $('#gate').style.display='none'; refresh(); }
+function logout(){ localStorage.removeItem('kioku_token'); TOKEN=''; showGate(); }
+function ago(iso){ if(!iso) return '—'; const s=(Date.now()-new Date(iso))/1000;
+  if(s<60)return Math.floor(s)+'s'; if(s<3600)return Math.floor(s/60)+'m';
+  if(s<86400)return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; }
+
+async function refresh(){
+  try{
+    const st = await (await api('/status')).json();
+    const b = st.budget||{}, v = st.vault||{};
+    const modeClass = b.mode==='normal'?'mode-ok':(/(halt|exhaust)/.test(b.mode||'')?'mode-bad':'mode-warn');
+    $('#modeLabel').className = 'count '+modeClass; $('#modeLabel').textContent = b.mode||'—';
+    $('#bLeft').textContent = '$'+(b.remaining??'—');
+    $('#bUsed').textContent = '$'+(b.spend??'—');
+    $('#bCredit').textContent = 'of $'+(b.credit??20)+' used';
+    const chip = $('#budgetChip'); chip.className='chip '+(b.mode==='normal'?'':/(halt|exhaust)/.test(b.mode||'')?'bad':'warn');
+    $('#chipText').innerHTML = 'budget <b>'+(b.mode||'—')+'</b> · $'+(b.remaining??'—')+' left';
+    const nConn = (st.connectors||[]).filter(c=>c.enabled).length;
+    PAUSED = !!st.paused;
+    const pc = $('#powerChip'); pc.className = 'chip '+(PAUSED?'bad':'');
+    $('#powerText').innerHTML = PAUSED ? 'paused <b>⏸</b>' : 'on';
+    document.querySelector('.lantern').style.filter = PAUSED ? 'grayscale(1) brightness(.5)' : '';
+    $('#status').innerHTML = PAUSED
+      ? 'is <b>paused</b> — click ⏸ or /resume to wake'
+      : 'is <b>awake</b> · watching '+nConn+' signal'+(nConn===1?'':'s');
+
+    // spark
+    const sp = st.spend_series||[];
+    if(sp.length>1){
+      const max=Math.max(0.001,...sp.map(x=>x.spend||0)), n=sp.length;
+      const pts=sp.map((x,i)=>`${(i/(n-1))*240},${44-(x.spend||0)/max*40}`).join(' ');
+      $('#sparkLine').setAttribute('points',pts);
+      $('#sparkFill').setAttribute('points',`0,44 ${pts} 240,44`);
+    }
+    // tiers
+    const sbm = st.spend_by_model||{}; const tier={haiku:0,sonnet:0,opus:0,fable:0};
+    for(const k in sbm){ const t=MODELTIER[k]; if(t) tier[t]+=sbm[k]; }
+    const maxTier = Math.max(0.0001,...Object.values(tier));
+    $('#tiers').innerHTML = ['haiku','sonnet','opus','fable'].map(t=>
+      `<div class="tier ${tier[t]>=maxTier&&maxTier>0.0001?'hot':''}"><b>${t}</b>${tier[t]?'$'+tier[t].toFixed(2):'—'}</div>`).join('');
+
+    // activity feed = derived signals + connector states
+    let feed=[];
+    if(st.claims&&st.claims.contradictions) feed.push(['⚠️',`<b>${st.claims.contradictions}</b> claim contradiction(s) to resolve`, ago(st.vault_observed_at)]);
+    if(v.orphans!=null) feed.push(['🕸️',`Vault: <b>${v.orphans}</b> orphan(s) of ${v.files} notes`, ago(st.vault_observed_at)]);
+    if((st.approvals||[]).length) feed.push(['🔐',`<b>${st.approvals.length}</b> outbound action(s) awaiting approval →`, 'now']);
+    if(st.pending_writes) feed.push(['✋',`<b>${st.pending_writes}</b> write(s) awaiting approval →`, 'now']);
+    feed.push(['💳',`Credit at <b>${Math.round((b.fraction||0)*100)}%</b> — ${b.mode} mode`, 'now']);
+    (st.connectors||[]).forEach(c=>{
+      if(c.state==='composio')
+        feed.push(['●',`${c.name} <span class="mono" style="color:var(--sage)">via composio</span>`, 'ready']);
+      else if(c.state==='connected' || (c.state===undefined && c.enabled))
+        feed.push(['●',`${c.name} <span class="mono" style="color:var(--dim)">${c.kind||''}</span>`, c.last_seen?ago(c.last_seen):'—']);
+      else feed.push(['○',`${c.name} — not connected`, '—','off']);
+    });
+    $('#feed').innerHTML = feed.map(f=>
+      `<div class="feed-item ${f[3]||''}"><span class="ic">${f[0]}</span><span class="tx">${f[1]}</span><span class="when">${f[2]}</span></div>`).join('');
+
+    // graph header + reseed clusters from real zone-ish counts
+    $('#graphCount').innerHTML = `<b>${v.files??'—'}</b> notes · <b>${v.orphans??'—'}</b> orphans`;
+    if(window.__seedGraph) window.__seedGraph(v.files||40, v.orphans||0);
+
+    // scheduled tasks (self-scheduling)
+    const sc = st.schedules||[];
+    $('#schedCount').textContent = sc.length;
+    $('#sched').innerHTML = sc.length ? sc.map(s=>
+      `<div class="skill"><span class="sd" style="background:var(--ember)"></span>`+
+      `<span class="sn">${esc(s.note||s.task||'').slice(0,40)}</span><small>${esc(s.cron||'')}</small></div>`).join('')
+      : '<div class="muted">none — say “send me X every Friday”</div>';
+
+    await loadGates(); await loadRuns(); await loadSkills(); await loadPeople();
+  }catch(e){ /* gate shown on 401 */ }
+}
+
+async function loadGates(){
+  // Outbound actions Kioku staged for approval (send mail, external delete, post, …). The vault is
+  // free and never appears here. Legacy vault-write plans (/writes) are shown too for compatibility.
+  let items=[]; try{ items = await (await api('/approvals')).json(); }catch(e){}
+  let writes=[]; try{ writes = await (await api('/writes')).json(); }catch(e){}
+  $('#gatesCount').textContent = items.length + writes.length;
+  const rows = items.map(a=>
+    `<div class="gate"><div class="k">Outbound · needs approval</div>
+      <div class="v">${esc(a.desc||a.tool||'')}</div><div class="hint mono">id ${a.id}</div>
+      <div class="gate-actions">
+        <button class="act primary" onclick="approveAction('${a.id}',this)">Approve</button>
+        <button class="act" onclick="rejectAction('${a.id}',this)">Reject</button></div></div>`)
+   .concat(writes.map(p=>
+    `<div class="gate"><div class="k">Write · needs approval</div>
+      <div class="v">${esc(p.path)}</div><div class="hint mono">sha ${p.sha256.slice(0,8)}</div>
+      <div class="gate-actions"><button class="act primary" onclick="approve('${p.sha256}',this)">Apply</button></div></div>`));
+  $('#gates').innerHTML = rows.length ? rows.join('') : '<div class="muted">nothing pending</div>';
+}
+async function approveAction(id,btn){ btn.textContent='running…'; btn.disabled=true;
+  await api('/approvals/'+id+'/approve',{method:'POST'}); setTimeout(refresh,900); }
+async function rejectAction(id,btn){ btn.textContent='rejecting…'; btn.disabled=true;
+  await api('/approvals/'+id+'/reject',{method:'POST'}); setTimeout(refresh,500); }
+async function approve(sha,btn){ btn.textContent='applying…'; btn.disabled=true;
+  await api('/writes/'+sha+'/apply',{method:'POST'}); setTimeout(refresh,700); }
+
+async function loadRuns(){
+  const runs = await (await api('/runs?limit=12')).json();
+  const spent = runs.reduce((s,r)=>s+(r.cost_usd||0),0);
+  $('#runsCount').textContent = `${runs.length} recent · $${spent.toFixed(2)}`;
+  $('#runs').innerHTML = runs.map(r=>{
+    const cls = r.status==='error'?'badge error':r.status==='running'?'badge live':'badge';
+    const hb = r.status==='running'?'<div class="heartbeat"><i></i></div>':'';
+    return `<div class="run"><div class="name"><div class="title">${(r.input||r.kind||'run').slice(0,54)}</div>
+      <div class="sub">${r.kind} · ${r.model||'—'}</div>${hb}</div>
+      <span class="${cls}">${r.status}</span><span class="cost">$${(r.cost_usd||0).toFixed(3)}</span></div>`;
+  }).join('') || '<div class="muted">no runs yet</div>';
+}
+async function loadSkills(){
+  const sk = await (await api('/skills')).json();
+  $('#skillsCount').textContent = 'learned · '+sk.length;
+  $('#skills').innerHTML = sk.length ? sk.map(s=>
+    `<div class="skill"><span class="sd"></span><span class="sn">${esc(s.name||'')}</span><small>${esc((s.when||'').slice(0,22))}</small></div>`).join('')
+    : '<div class="muted">none yet — Kioku proposes skills from your work</div>';
+}
+async function loadPeople(){
+  try{
+    const ppl = await (await api('/people?limit=12')).json();
+    $('#peopleCount').textContent = ppl.length;
+    $('#people').innerHTML = ppl.length ? ppl.map(p=>
+      `<div class="skill"><span class="sd" style="background:var(--sage)"></span>`+
+      `<span class="sn">${esc(p.name||'')}</span><small>${esc((p.context||'').slice(0,26))}</small></div>`).join('')
+      : '<div class="muted">none yet — learned from your notes</div>';
+  }catch(e){ $('#people').innerHTML='<div class="muted">—</div>'; }
+}
+
+// ---- chat ----
+function addMsg(cls, text){
+  const d=document.createElement('div'); d.className='msg '+cls;
+  const b=document.createElement('span'); b.className='bubble'; b.textContent=text;
+  d.appendChild(b); if(cls==='kioku'){ const m=document.createElement('div'); m.className='meta'; d.appendChild(m); }
+  $('#thread').appendChild(d); $('#thread').scrollTop=$('#thread').scrollHeight; return d;
+}
+async function run(kind, input){
+  addMsg('you', input);
+  const node = addMsg('kioku', ''); const bubble=node.querySelector('.bubble'); const meta=node.querySelector('.meta');
+  bubble.innerHTML='<span class="cursor"></span>'; meta.textContent='routing…';
+  try{
+    const r = await (await api('/tasks',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind,input,source:'web',difficulty:'triage',essential:true})})).json();
+    const es = new EventSource(`/tasks/${r.run_id}/stream`+(TOKEN?`?token=${encodeURIComponent(TOKEN)}`:''));
+    let acc='';
+    es.addEventListener('run', ev=>{
+      let d; try{ d=JSON.parse(ev.data); }catch{ return; }
+      if(d.type==='start'){ meta.textContent=(d.model||'')+' · '+(d.mode||'')+' · streaming'; }
+      if(d.type==='text'){ acc=d.text; bubble.innerHTML=mdToHtml(acc); }
+      if(d.type==='done'){ if(d.text){acc=d.text; bubble.innerHTML=mdToHtml(d.text);} meta.textContent='done'; es.close(); refresh(); }
+      $('#thread').scrollTop=$('#thread').scrollHeight;
+    });
+    es.onerror=()=>{ es.close(); if(!acc){ bubble.textContent='(stream ended)'; meta.textContent='—'; } };
+  }catch(e){ bubble.textContent='error: '+e.message; }
+}
+function send(){ const m=$('#msg').value.trim(); if(!m)return; $('#msg').value=''; run('input',m); }
+function cmd(text,kind){ run(kind||'input',text); }
+
+// ---- file upload → /ingest (learn from a file straight from the web GUI) ----
+async function uploadFiles(files){
+  for(const f of files){
+    addMsg('you','📎 '+f.name);
+    const node=addMsg('kioku',''); const bubble=node.querySelector('.bubble'); const meta=node.querySelector('.meta');
+    bubble.innerHTML='<span class="cursor"></span>'; meta.textContent='learning…';
+    try{
+      const fd=new FormData(); fd.append('file', f, f.name);
+      const j=await (await api('/ingest',{method:'POST',body:fd})).json();  // no Content-Type: browser sets multipart boundary
+      bubble.textContent='📎 learning from '+(j.file||f.name)+' — it will land in the vault shortly.';
+      meta.textContent='ingest queued'; setTimeout(refresh,1500);
+    }catch(e){ bubble.textContent='upload failed: '+e.message; meta.textContent='—'; }
+  }
+  $('#file').value='';
+}
+$('#msg').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();send();} });
+
+// ---- living knowledge graph (decorative; seeded by real note/orphan counts) ----
+(function(){
+  const cv=document.getElementById('brain'); if(!cv) return;
+  const ctx=cv.getContext('2d'), DPR=Math.min(window.devicePixelRatio||1,2);
+  const css=getComputedStyle(document.documentElement);
+  const COL=[css.getPropertyValue('--indigo').trim(),css.getPropertyValue('--sage').trim(),
+             css.getPropertyValue('--text').trim(),css.getPropertyValue('--rose').trim()];
+  const EMBER=css.getPropertyValue('--ember').trim();
+  let W,H,nodes=[],links=[],total=40,orphans=0;
+  function size(){ const r=cv.getBoundingClientRect(); W=r.width; H=r.height; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+  function build(){
+    // One organic, round cloud (not 4 tight clumps): phyllotaxis seeding gives an even, balanced
+    // spread that stays pleasing as the vault grows. Orphans drift to the outer ring, live notes
+    // fill the disc, colour still reads by zone. Gentle home-pull + mild repulsion keeps it breathing.
+    nodes=[]; links=[]; const shown=Math.max(12,Math.min(90,total));
+    const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.46, GA=2.399963229;   // golden angle
+    const orphanShown=Math.min(orphans, Math.floor(shown*0.4));
+    for(let i=0;i<shown;i++){
+      const isOrphan=i>=shown-orphanShown;                            // last N sit on the periphery
+      const isNew=!isOrphan && Math.random()<0.08;
+      const frac=(i+0.5)/shown;
+      let rr=maxR*Math.sqrt(frac);
+      if(isOrphan) rr=maxR*(0.92+Math.random()*0.12);
+      const a=i*GA + (isOrphan?Math.random()*0.6:0);
+      const hx=cx+Math.cos(a)*rr, hy=cy+Math.sin(a)*rr*0.82;          // slight squash to fit the panel
+      nodes.push({c:isOrphan?COL[3]:COL[i%3], x:hx+(Math.random()-.5)*12, y:hy+(Math.random()-.5)*12,
+        vx:0,vy:0, hx, hy, r:isNew?3.4:1.6+Math.random()*2, nw:isNew, orphan:isOrphan, ph:Math.random()*6.28});
+    }
+    // Link each live note to its nearest neighbour (+ an occasional longer thread) — short links
+    // read as structure without forcing hard groups.
+    const live=nodes.map((_,i)=>i).filter(i=>!nodes[i].orphan);
+    for(const i of live){
+      let best=-1, bd=1e9;
+      for(const j of live){ if(j===i)continue; const dx=nodes[i].hx-nodes[j].hx, dy=nodes[i].hy-nodes[j].hy; const d=dx*dx+dy*dy; if(d<bd){bd=d;best=j;} }
+      if(best>=0) links.push([i,best]);
+      if(Math.random()<0.28 && live.length>2){ const k=live[Math.floor(Math.random()*live.length)]; if(k!==i) links.push([i,k]); }
+    }
+  }
+  let t=0,raf;
+  function step(){ t+=0.016;
+    for(const p of nodes){ p.vx+=(p.hx-p.x)*0.0018; p.vy+=(p.hy-p.y)*0.0018;
+      p.vx+=Math.cos(t*0.5+p.ph)*0.005; p.vy+=Math.sin(t*0.4+p.ph)*0.005; }
+    // mild mutual repulsion so nodes breathe apart instead of overlapping — keeps the cloud round
+    for(let i=0;i<nodes.length;i++){ const a=nodes[i];
+      for(let j=i+1;j<nodes.length;j++){ const b=nodes[j]; const dx=a.x-b.x, dy=a.y-b.y; let d2=dx*dx+dy*dy;
+        if(d2<820){ if(d2<1)d2=1; const f=0.35/d2; a.vx+=dx*f; a.vy+=dy*f; b.vx-=dx*f; b.vy-=dy*f; } } }
+    for(const p of nodes){ p.vx*=0.9; p.vy*=0.9; p.x+=p.vx; p.y+=p.vy; }
+    ctx.clearRect(0,0,W,H);
+    for(const l of links){ const a=nodes[l[0]],b=nodes[l[1]]; ctx.strokeStyle='rgba(235,229,215,0.10)'; ctx.lineWidth=0.6;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+    for(const p of nodes){ if(p.nw){ const g=0.5+0.5*Math.sin(t*2+p.ph); ctx.beginPath(); ctx.arc(p.x,p.y,p.r+4*g,0,6.28);
+        ctx.fillStyle='rgba(233,166,77,'+(0.12*g)+')'; ctx.fill(); }
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fillStyle=p.nw?EMBER:p.c; ctx.globalAlpha=p.orphan?0.5:0.85; ctx.fill(); ctx.globalAlpha=1; }
+    raf=requestAnimationFrame(step);
+  }
+  window.__seedGraph=(files,orph)=>{ total=files; orphans=orph; size(); build(); };
+  function start(){ cancelAnimationFrame(raf); size(); build(); step(); }
+  window.addEventListener('resize',()=>{size();build();}); start();
+})();
+
+setInterval(()=>{ const d=new Date(); $('#clock').textContent=d.toLocaleDateString(undefined,{weekday:'short'}).toUpperCase()+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}); },1000);
+setInterval(refresh, 15000);
+if(!TOKEN) showGate(); else refresh();
+</script>
+</body>
+</html>
