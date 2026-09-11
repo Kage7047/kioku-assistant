@@ -1,0 +1,37 @@
+# Connectors. Two jobs:
+#   kind: mcp     -> mounted as a TOOL in live runs (on-demand: "what's on my calendar?")
+#   kind: poller  -> pulled on a schedule into the signals store (proactive: briefs, alerts)
+#   kind: metrics -> a built-in poller (Kioku's own stats)
+# enabled:false = a wired-later slot. Adding one = a line here (+ an adapter, for pollers).
+# Principle: capabilities are code; which sources/accounts exist is THIS file.
+connectors:
+  - {name: self,     kind: metrics, enabled: true,  schedule: 3600}
+
+  # --- tool connectors (MCP mounts; used inside a run) ---
+  # Composio hosted MCP URL: ONE endpoint for ALL your connected Composio apps (Gmail, Calendar,
+  # Drive, Sheets, Docs, LinkedIn, ...) = https://connect.composio.dev/mcp, authenticated with the
+  # x-consumer-api-key header set to COMPOSIO_API_KEY (the ck_… key). Just set COMPOSIO_API_KEY on
+  # the worker — no session-mint, no COMPOSIO_USER_ID. (Override the URL via COMPOSIO_MCP_URL.)
+  - {name: composio, kind: mcp, enabled: true,  provider: tool_router, auth_env: COMPOSIO_API_KEY, note: "all connected Composio apps via one endpoint"}
+  # Static per-service MCP mounts (alternative to Composio; leave disabled if using Composio).
+  # `via: composio` = this app is served by the Composio router above, so the dashboard shows it
+  # as "via composio" (available), not "not connected". Add the flag to an app once you connect
+  # it in Composio; remove it (or set enabled:true + a url) to mount that service directly instead.
+  - {name: calendar, kind: mcp, enabled: false, via: composio, url: "https://<your-calendar-mcp>/mcp", auth_env: CALENDAR_MCP_TOKEN, note: "events + booking"}
+  - {name: gmail,    kind: mcp, enabled: false, via: composio, url: "https://<your-gmail-mcp>/mcp",    auth_env: GMAIL_MCP_TOKEN,    note: "read/triage mail"}
+  - {name: drive,    kind: mcp, enabled: false, via: composio, url: "https://<your-drive-mcp>/mcp",    auth_env: DRIVE_MCP_TOKEN,    note: "docs"}
+  - {name: notion,   kind: mcp, enabled: false, url: "https://<your-notion-mcp>/mcp",   auth_env: NOTION_MCP_TOKEN,   note: "notion pages"}
+
+  - {name: sheets,   kind: mcp, enabled: false, via: composio, url: "https://<your-sheets-mcp>/mcp",   auth_env: SHEETS_MCP_TOKEN,   note: "finance/runway, invoices"}
+  - {name: canva,    kind: mcp, enabled: false, url: "https://<your-canva-mcp>/mcp",    auth_env: CANVA_MCP_TOKEN,    note: "design collab"}
+  - {name: figma,    kind: mcp, enabled: false, url: "https://<your-figma-mcp>/mcp",    auth_env: FIGMA_MCP_TOKEN,    note: "design collab"}
+
+  # --- poller connectors (scheduled → signals) ---
+  - {name: sentry,   kind: poller, enabled: false, schedule: 3600, note: "error spikes (needs SENTRY_* env)"}
+  - {name: vercel,   kind: poller, enabled: true,  schedule: 3600, note: "deploys/uptime (needs VERCEL_TOKEN)"}
+  - {name: github,   kind: poller, enabled: true,  schedule: 1800, note: "PRs/issues/CI/CVE (needs GITHUB_TOKEN, GITHUB_REPOS)"}
+  - {name: db,       kind: poller, enabled: true,  schedule: 3600, note: "app metrics via read-only query (needs APP_DB_URL, APP_DB_QUERIES)"}
+
+  # --- bank: READ-ONLY. transfers are hard-disabled in code. add with guardrails, test first. ---
+  - {name: bank,     kind: poller, enabled: false, schedule: 21600, note: "balances/txns READ-ONLY (needs BANK_* env); NEVER initiates transfers"}
+  # retired — do not re-add: an old crypto bot, an image/video workflow

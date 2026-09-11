@@ -1,0 +1,52 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kioku}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kioku}
+      POSTGRES_DB: ${POSTGRES_DB:-kioku}
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./src/kioku/memory/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kioku}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    command: uvicorn kioku.api.main:app --host 0.0.0.0 --port 8000
+    env_file: [.env]
+    ports: ["8000:8000"]
+    volumes:
+      - ./src:/app/src
+      - ${VAULT_PATH:-./vault}:/vault
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  worker:
+    build: .
+    command: celery -A kioku.worker.celery_app.app worker --beat --loglevel=info
+    env_file: [.env]
+    volumes:
+      - ./src:/app/src
+      - ${VAULT_PATH:-./vault}:/vault
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+
+volumes:
+  pgdata:

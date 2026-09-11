@@ -1,0 +1,9 @@
+# Worker + beat. Owns the vault checkout (attach a Volume at VAULT_PATH).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "celery -A kioku.worker.celery_app.app worker --beat --loglevel=info"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
