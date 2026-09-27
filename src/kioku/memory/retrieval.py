@@ -14,7 +14,6 @@ WHY hybrid (not BM25 alone):
 """
 import logging
 
-from ..config import settings
 from . import embeddings, vault as V
 from .db import pool
 from .._compat import run_sync

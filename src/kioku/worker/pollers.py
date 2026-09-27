@@ -98,8 +98,6 @@ def poll_github() -> dict:
         try:
             prs = httpx.get(f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=100",
                             headers=h, timeout=20).json()
-            iss = httpx.get(f"https://api.github.com/repos/{repo}/issues?state=open&per_page=1",
-                            headers=h, timeout=20)
             # open issues count via header link isn't trivial; keep it simple: open PRs + repo meta
             meta = httpx.get(f"https://api.github.com/repos/{repo}", headers=h, timeout=20).json()
             out[repo] = {"open_prs": len(prs) if isinstance(prs, list) else 0,
