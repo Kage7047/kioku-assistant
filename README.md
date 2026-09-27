@@ -8,6 +8,7 @@ approval model, and reaches you through Telegram, a web command center, or an AP
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Status](https://img.shields.io/badge/status-reference%20implementation-purple.svg)
+[![ci](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 
 ![Kioku command center](assets/command-center-desktop.png)
 
