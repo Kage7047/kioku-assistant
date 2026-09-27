@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-import frontmatter
 from rank_bm25 import BM25Okapi
 
 from ..config import settings

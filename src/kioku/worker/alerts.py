@@ -11,7 +11,6 @@ import redis
 
 from ..config import settings
 from .._compat import run_sync
-from ..frontdoor.notify import notify
 from .interrupt import notify_proactive       # Phase 4.3 — gate proactive alerts through the governor
 from ..memory import db, vault as V
 

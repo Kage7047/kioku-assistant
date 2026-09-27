@@ -10,8 +10,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 
-from ..config import settings
-from . import capture  # reuse subtype for the note card
+from . import capture  # noqa: F401  # reuse subtype for the note card
 from ..memory import vault as V
 
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic"}
