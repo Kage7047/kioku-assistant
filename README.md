@@ -122,6 +122,16 @@ tests/                unit (scripted model, no network) and integration (Postgre
 
 Why it is built this way: [`docs/adr/`](docs/adr/README.md).
 
+## Try it in one command
+
+```bash
+make demo     # Docker only — no API key: a stub model quotes the fictional sample vault
+# open http://localhost:8000, token: demo
+```
+
+Everything except the model is real: API, worker, Postgres + pgvector, Redis, routing, retrieval,
+the budget guard and the outbound gate. Details in [`docs/DEMO.md`](docs/DEMO.md).
+
 ## Running it
 
 Requires Docker. Kioku authenticates against a Claude subscription's agent credit via an OAuth
