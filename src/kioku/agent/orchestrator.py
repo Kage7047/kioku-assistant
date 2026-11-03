@@ -279,6 +279,60 @@ def _approved_call_gate(approved_call: dict):
 _GATED_SERVERS = ("handoff",)
 
 
+class UsageMeter:
+    """Token accounting over the SDK's message stream.
+
+    Each AssistantMessage carries the usage of ONE API response, and Claude Code repeats that same
+    usage on every content block of the response (same message_id). The terminal ResultMessage then
+    reports the whole session's totals, plus the SDK's own cost. Summing everything — the old
+    approach — counted each response several times and the session once more on top, so the budget
+    guard over-counted spend and degraded early. Here: count each response once, and let the
+    ResultMessage's totals and cost win when they arrive."""
+
+    _KEYS = (("tokens_in", "input_tokens"), ("tokens_out", "output_tokens"),
+             ("cache_read", "cache_read_input_tokens"), ("cache_write", "cache_creation_input_tokens"))
+
+    def __init__(self):
+        self._per_response: dict[str, dict] = {}
+        self._anonymous: list[dict] = []
+        self._final: dict | None = None
+        self.cost_usd: float | None = None
+
+    @classmethod
+    def _read(cls, usage) -> dict:
+        g = usage.get if isinstance(usage, dict) else (lambda k, d=0: getattr(usage, k, d))
+        return {mine: int(g(theirs, 0) or 0) for mine, theirs in cls._KEYS}
+
+    def observe(self, msg) -> None:
+        usage = getattr(msg, "usage", None)
+        is_result = hasattr(msg, "result") or hasattr(msg, "total_cost_usd")
+        if is_result:
+            if usage is not None:
+                self._final = self._read(usage)
+            cost = getattr(msg, "total_cost_usd", None)
+            if isinstance(cost, (int, float)):
+                self.cost_usd = float(cost)
+            return
+        if usage is None:
+            return
+        mid = getattr(msg, "message_id", None)
+        if mid:
+            self._per_response[mid] = self._read(usage)     # repeated blocks overwrite, not add
+        else:
+            self._anonymous.append(self._read(usage))
+
+    def totals(self) -> dict:
+        if self._final is not None:
+            out = dict(self._final)
+        else:
+            out = {k: 0 for k, _ in self._KEYS}
+            for u in [*self._per_response.values(), *self._anonymous]:
+                for k in out:
+                    out[k] += u[k]
+        out["cost_usd"] = self.cost_usd
+        return out
+
+
 def _verbosity_directive(verbosity: str) -> str:
     if verbosity == "brief":
         return ("Answer directly in 1–3 sentences. No headings, no preamble, no bullet lists "
@@ -389,7 +443,9 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
         options = ClaudeAgentOptions(**opt_kwargs)
 
     await _emit(run_id, {"type": "start", "model": model, "mode": b["mode"]})
-    state = {"text": "", "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0}
+    state = {"text": "", "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0,
+             "cost_usd": None}
+    usage_meter = UsageMeter()
 
     async def _consume():
         async for msg in query(prompt=prompt, options=options):
@@ -408,16 +464,8 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
             if isinstance(result, str) and result.strip() and not state["text"].strip():
                 state["text"] = result
                 await _emit(run_id, {"type": "text", "text": result[:1500]})
-            # usage may be a dict or an object depending on SDK version.
-            usage = getattr(msg, "usage", None)
-            if usage is not None:
-                g = usage.get if isinstance(usage, dict) else (lambda k, d=0: getattr(usage, k, d))
-                state["tokens_in"] += (g("input_tokens", 0) or 0)
-                state["tokens_out"] += (g("output_tokens", 0) or 0)
-                # cache verification (prompt caching is prefix-based + automatic in the SDK; this
-                # proves it's hitting — cache_read should dominate on repeat runs).
-                state["cache_read"] += (g("cache_read_input_tokens", 0) or 0)
-                state["cache_write"] += (g("cache_creation_input_tokens", 0) or 0)
+            usage_meter.observe(msg)
+            state.update(usage_meter.totals())
 
     # A run should never hang until the 15-min stale-reaper: a spent usage limit or a stalled
     # subprocess is caught here and turned into a clear reply. Background jobs get a long budget.
@@ -443,7 +491,8 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
             await _emit(run_id, {"type": "done", "text": note})
             return {"text": note, "tokens_in": state["tokens_in"], "tokens_out": state["tokens_out"],
                     "model": model, "skipped": False, "turn_capped": True,
-                    "cache_read": state["cache_read"], "cache_write": state["cache_write"]}
+                    "cache_read": state["cache_read"], "cache_write": state["cache_write"],
+                    "cost_usd": state["cost_usd"]}
         note = _limit_note(es) or f"Run failed: {es[:400]}"
         await _emit(run_id, {"type": "done", "text": note})
         return {"text": note, "tokens_in": state["tokens_in"], "tokens_out": state["tokens_out"],
@@ -456,4 +505,5 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
     await _emit(run_id, {"type": "done", "text": final_text})
     return {"text": final_text, "tokens_in": state["tokens_in"],
             "tokens_out": state["tokens_out"], "model": model, "skipped": False,
-            "cache_read": state["cache_read"], "cache_write": state["cache_write"]}
+            "cache_read": state["cache_read"], "cache_write": state["cache_write"],
+            "cost_usd": state["cost_usd"]}

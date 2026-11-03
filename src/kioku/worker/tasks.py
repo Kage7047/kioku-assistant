@@ -26,7 +26,11 @@ def _paused_finish(run_id) -> bool:
 
 def _record_and_notify(run_id, out):
     """Store cost on the run, then ping Telegram if the budget mode escalated."""
-    cost = budget.cost_usd(out["model"], out["tokens_in"], out["tokens_out"])
+    # Prefer the SDK's own figure; otherwise price the tokens, cache reads/writes included.
+    cost = out.get("cost_usd")
+    if cost is None:
+        cost = budget.cost_usd(out["model"], out["tokens_in"], out["tokens_out"],
+                               out.get("cache_read", 0), out.get("cache_write", 0))
     db.finish_run_sync(run_id, status="done",
                        result_text=out.get("text"), result_path=out.get("result_path"),
                        tokens_in=out["tokens_in"], tokens_out=out["tokens_out"], cost_usd=cost)

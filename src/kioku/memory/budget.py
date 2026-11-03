@@ -4,21 +4,32 @@ The Pro credit (~$20/mo, standard API rates, no rollover) is a wall: when it's g
 Agent SDK requests stop. So we track month-to-date spend and DEGRADE gracefully:
 conserve -> haiku-only -> halt non-essential, and ping you before the wall.
 
-Rates are conservative (ignore prompt-cache discounts), so real spend is <= our estimate.
-UPDATE RATES when Anthropic changes prices.
+Recorded spend uses the SDK's own per-run cost when it reports one, else the PRICES table below
+(cache reads and writes included). The pre-flight ceiling ignores cache discounts on purpose, so
+it over-estimates: a safe wall to check against.
 """
 from .db import pool
 from .._compat import run_sync
 from ..config import settings
 
-# per-MTok (input, output) USD
-RATES = {
-    settings.model_triage:       (1.0, 5.0),    # Haiku 4.5
-    settings.model_work:         (2.0, 10.0),   # Sonnet 5 (intro; may rise to 3/15)
-    settings.model_orchestrator: (5.0, 25.0),   # Opus
-    settings.model_hard:         (10.0, 50.0),  # Fable 5
+# USD per million tokens: (input, output, cache write [5-minute TTL], cache read).
+# Anthropic first-party list prices, checked 2026-11. Cache writes cost 1.25x input; cache reads
+# are ~0.1x input except where noted. UPDATE when prices change — a wrong table silently breaks
+# the guard in one direction or the other.
+PRICES: dict[str, tuple[float, float, float, float]] = {
+    "claude-haiku-5-5":  (0.10, 0.50, 0.125, 0.01),   # prompts <= 100K tokens
+    "claude-sonnet-5-5": (2.00, 10.00, 2.50, 0.20),
+    "claude-opus-5-5":   (4.00, 20.00, 5.00, 0.20),
+    "claude-fable-5-1":  (10.00, 50.00, 12.50, 0.25),
+    # previous generation, still served
+    "claude-haiku-4-5":  (1.00, 5.00, 1.25, 0.10),
+    "claude-sonnet-5":   (2.00, 10.00, 2.50, 0.20),
+    "claude-opus-5":     (5.00, 25.00, 6.25, 0.50),
+    "claude-opus-4-8":   (5.00, 25.00, 6.25, 0.50),
+    "claude-fable-5":    (10.00, 50.00, 12.50, 1.00),
 }
-DEFAULT_RATE = (3.0, 15.0)
+# An unknown model is priced as the most expensive known one: the guard must over-, never under-estimate.
+DEFAULT_PRICE = max(PRICES.values())
 
 _TIER = {
     "triage": settings.model_triage,
@@ -28,9 +39,16 @@ _TIER = {
 }
 
 
-def cost_usd(model: str, tokens_in: int, tokens_out: int) -> float:
-    ri, ro = RATES.get(model, DEFAULT_RATE)
-    return round(tokens_in / 1e6 * ri + tokens_out / 1e6 * ro, 4)
+def price(model: str) -> tuple[float, float, float, float]:
+    return PRICES.get(model, DEFAULT_PRICE)
+
+
+def cost_usd(model: str, tokens_in: int, tokens_out: int,
+             cache_read: int = 0, cache_write: int = 0) -> float:
+    """Cost of a run from its token counts. `tokens_in` is the UNCACHED input only — the API reports
+    cache reads and writes separately, and ignoring them under-counts long cached sessions."""
+    pi, po, pw, pr = price(model)
+    return round((tokens_in * pi + tokens_out * po + cache_write * pw + cache_read * pr) / 1e6, 6)
 
 
 async def month_to_date_spend() -> float:
@@ -95,7 +113,7 @@ def ceiling_cost(model: str, prompt: str, max_turns: int | None = None) -> float
     re-sending a bounded context and emitting up to max_output_tokens. Prompt caching
     makes this an over-estimate in practice, so it's a safe wall to check against.
     A lower per-run turn cap (cheap intents) tightens the ceiling → fewer needless refusals."""
-    ri, ro = RATES.get(model, DEFAULT_RATE)
+    ri, ro, _, _ = price(model)
     ctx_in = settings.preflight_context_tokens + estimate_tokens(prompt)
     per_turn = ctx_in / 1e6 * ri + settings.max_output_tokens / 1e6 * ro
     return round((max_turns or settings.max_turns) * per_turn, 4)
