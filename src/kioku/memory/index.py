@@ -63,8 +63,14 @@ async def reindex(paths: list[str] | None = None) -> dict:
             continue
         parts = chunk_note(text)
         vecs = embeddings.embed_passages(parts) or []
+        if len(vecs) != len(parts):
+            # The embedding backend failed or came back short. Keep the note's old chunks rather
+            # than deleting them and inserting nothing (which silently dropped the note from
+            # semantic search); the unchanged mtime means the next reindex retries it.
+            skipped += 1
+            continue
         await p.execute("DELETE FROM chunks WHERE path=$1", rel)
-        for i, (chunk, vec) in enumerate(zip(parts, vecs)):
+        for i, (chunk, vec) in enumerate(zip(parts, vecs, strict=True)):
             cid = f"{rel}::{i}::{_hash8(chunk)}"
             await p.execute(
                 # $6::vector — asyncpg has no native vector codec; the explicit cast lets it send the

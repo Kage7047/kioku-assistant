@@ -77,7 +77,8 @@ def propose_skill_task(_label: str = "propose"):
     entries = ""
     for f in sorted(glob.glob(os.path.join(settings.vault_path, "journal", "*.md")))[-7:]:
         try:
-            entries += open(f, encoding="utf-8").read()[:1500] + "\n"
+            with open(f, encoding="utf-8") as fh:
+                entries += fh.read()[:1500] + "\n"
         except Exception:  # noqa: BLE001
             pass
     if not entries.strip():

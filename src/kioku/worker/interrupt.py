@@ -39,9 +39,7 @@ def allow(cls: str) -> bool:
             return True
         if _weights().get(cls, 1.0) <= 0.15:            # effectively muted by feedback
             return False
-        if int(_r.get(_today_key()) or 0) >= DAILY_BUDGET:
-            return False
-        return True
+        return int(_r.get(_today_key()) or 0) < DAILY_BUDGET
     except Exception:  # noqa: BLE001
         return True                                     # never let the governor itself block an alert
 

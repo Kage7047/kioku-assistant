@@ -75,3 +75,6 @@ extend-exclude = ["mockups"]
 [tool.ruff.lint]
 select = ["E9", "F", "B", "UP", "SIM"]
 ignore = ["E501", "SIM105", "SIM108", "B904", "UP035"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Depends", "fastapi.Query"]   # FastAPI's idiom

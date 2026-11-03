@@ -166,7 +166,7 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
                                else settings.background_timeout_seconds)
     try:
         await asyncio.wait_for(_consume(), timeout=wall)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         note = (state["text"].strip() or
                 "⏳ No reply in time — usually the Claude usage limit (5-hour or weekly) "
                 "was hit, or the run stalled. I'll be ready when it resets.")
