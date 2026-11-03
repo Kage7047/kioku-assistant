@@ -14,13 +14,25 @@ def _spend(monkeypatch, usd: float):
 # ---- cost ----------------------------------------------------------------------------
 def test_cost_uses_per_model_rates():
     # 1M in + 1M out on the triage model = its input + output rate
-    ri, ro = budget.RATES[settings.model_triage]
+    ri, ro, _, _ = budget.price(settings.model_triage)
     assert budget.cost_usd(settings.model_triage, 1_000_000, 1_000_000) == pytest.approx(ri + ro)
 
 
-def test_cost_unknown_model_falls_back_to_default_rate():
-    ri, ro = budget.DEFAULT_RATE
-    assert budget.cost_usd("some-future-model", 1_000_000, 0) == pytest.approx(ri)
+def test_cost_counts_cache_reads_and_writes():
+    _, _, pw, pr = budget.price(settings.model_work)
+    cost = budget.cost_usd(settings.model_work, 0, 0, cache_read=1_000_000, cache_write=1_000_000)
+    assert cost == pytest.approx(pw + pr)
+    assert pw > budget.price(settings.model_work)[0]          # a write costs more than plain input
+    assert pr < budget.price(settings.model_work)[0]          # a read costs less
+
+
+def test_unknown_models_are_priced_as_the_most_expensive():
+    assert budget.price("claude-some-future-model") == max(budget.PRICES.values())
+
+
+def test_default_tiers_have_known_prices():
+    for model in (settings.model_triage, settings.model_work, settings.model_orchestrator, settings.model_hard):
+        assert model in budget.PRICES, model
 
 
 def test_cost_zero_tokens_is_free():
@@ -104,7 +116,10 @@ async def test_preflight_downgrades_to_haiku_before_refusing(monkeypatch):
     work_ceiling = budget.ceiling_cost(settings.model_work, "plan my week", 40)
     haiku_ceiling = budget.ceiling_cost(settings.model_triage, "plan my week", 40)
     assert haiku_ceiling < work_ceiling
-    # leave just enough credit for the Haiku ceiling, not the Sonnet one
+    # leave just enough credit for the Haiku ceiling, not the Sonnet one (and stay in normal mode,
+    # so it is the ceiling check — not a budget mode — that downgrades)
+    monkeypatch.setattr(settings, "agent_sdk_monthly_credit_usd", haiku_ceiling + work_ceiling)  # 50% spent
+    credit = settings.agent_sdk_monthly_credit_usd
     _spend(monkeypatch, credit - (haiku_ceiling + work_ceiling) / 2)
     d = await budget.preflight("work", "plan my week", essential=True, max_turns=40)
     assert d["decision"] == "allow"

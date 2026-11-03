@@ -59,7 +59,7 @@ async def backfill_embeddings(batch: int = 256) -> int:
         return 0
     vecs = embeddings.embed_passages([r["statement"] for r in rows]) or []
     n = 0
-    for r, vec in zip(rows, vecs):
+    for r, vec in zip(rows, vecs, strict=False):   # a short/failed embed batch just embeds fewer
         await p.execute("UPDATE claims SET embedding=$2::vector WHERE id=$1", r["id"], str(vec))
         n += 1
     return n

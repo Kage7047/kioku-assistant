@@ -75,3 +75,30 @@ extend-exclude = ["mockups"]
 [tool.ruff.lint]
 select = ["E9", "F", "B", "UP", "SIM"]
 ignore = ["E501", "SIM105", "SIM108", "B904", "UP035"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.File", "fastapi.Depends", "fastapi.Query"]   # FastAPI's idiom
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+follow_imports = "silent"
+check_untyped_defs = true
+warn_unused_ignores = true
+# Typed core: the budget guard, the vault, approvals and the gate, retrieval, routing, the API.
+# Widen this list as modules get annotations.
+files = [
+    "src/kioku/config.py",
+    "src/kioku/memory/budget.py",
+    "src/kioku/memory/vault.py",
+    "src/kioku/memory/approvals.py",
+    "src/kioku/memory/retrieval.py",
+    "src/kioku/memory/index.py",
+    "src/kioku/agent/router.py",
+    "src/kioku/agent/gate.py",
+    "src/kioku/agent/usage.py",
+    "src/kioku/agent/toolsets.py",
+    "src/kioku/agent/prompts.py",
+    "src/kioku/agent/orchestrator.py",
+    "src/kioku/api/main.py",
+]

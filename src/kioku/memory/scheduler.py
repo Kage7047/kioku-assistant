@@ -33,9 +33,8 @@ def _parse_field(spec: str, lo: int, hi: int) -> set[int]:
             rng = range(v, v + 1)
         base = rng.start
         for v in rng:
-            if step == 1 or (v - base) % step == 0:
-                if lo <= v <= hi:
-                    vals.add(v)
+            if (step == 1 or (v - base) % step == 0) and lo <= v <= hi:
+                vals.add(v)
     return vals
 
 
