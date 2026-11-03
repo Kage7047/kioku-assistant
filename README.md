@@ -9,6 +9,7 @@ approval model, and reaches you through Telegram, a web command center, or an AP
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Status](https://img.shields.io/badge/status-reference%20implementation-purple.svg)
 [![ci](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
+[![coverage](https://raw.githubusercontent.com/Kage7047/kioku-assistant/badges/badges/coverage.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 
 ![Kioku command center](assets/command-center-desktop.png)
 
@@ -127,6 +128,25 @@ report on your vault as its first real job. Every knob is environment-driven —
 in [`docs/reference/configuration.md`](docs/reference/configuration.md). Full first-start
 walkthrough: [`docs/QUICKSTART.md`](docs/QUICKSTART.md). Managed deploy (Railway services +
 pgvector + Redis + a git-backed vault): [`docs/05-deploy-railway.md`](docs/05-deploy-railway.md).
+
+## Testing
+
+```bash
+pip install -e ".[dev]"
+docker compose -f docker-compose.test.yml up -d --wait   # Postgres + pgvector, Redis
+pytest --cov
+```
+
+- **Unit tests** run with no network: fakeredis, a temporary vault, and a scripted stand-in for
+  the Agent SDK's message stream ([`tests/fakes.py`](tests/fakes.py)). That makes whole agent runs
+  testable — budget pre-flight, tool narrowing, the outbound gate, streaming, token accounting, and
+  every failure path (timeouts, turn caps, usage limits, crashes) — deterministically and for free.
+- **Integration tests** run against real Postgres + pgvector and Redis: the run ledger and
+  month-to-date spend that feed the budget guard, stale-run reaping, incremental re-indexing, and the
+  full hybrid retrieval path (HNSW cosine search fused with BM25).
+- CI runs both on every push and pull request; a skipped integration test fails the build.
+
+More in [`tests/README.md`](tests/README.md).
 
 ## Command center
 

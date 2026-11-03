@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -20,6 +24,88 @@ jobs:
         run: pipx run ruff check --select E9,F63,F7,F82 --output-format github .
       - name: Byte-compile
         run: python -m compileall -q .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env: {POSTGRES_USER: kioku, POSTGRES_PASSWORD: kioku, POSTGRES_DB: kioku_test}
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kioku -d kioku_test" --health-interval 2s
+          --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["56379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      KIOKU_REQUIRE_INTEGRATION: "1"     # in CI a skipped integration test is a failure
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install
+        run: uv pip install --system -e ".[dev]"
+      - name: Unit + integration tests with coverage
+        run: pytest --cov --cov-report=term --cov-report=xml --junitxml=junit.xml
+      - name: Coverage summary
+        if: always()
+        run: |
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          r = ET.parse("coverage.xml").getroot()
+          print(f"### Coverage: {float(r.get('line-rate')) * 100:.1f}% lines, "
+                f"{float(r.get('branch-rate')) * 100:.1f}% branches")
+          EOF
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            coverage.xml
+            junit.xml
+
+  coverage-badge:
+    # Publishes badges/coverage.svg to the `badges` branch on main — no third-party service.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-results
+      - name: Render badge
+        run: |
+          python - <<'EOF'
+          import xml.etree.ElementTree as ET
+          pct = float(ET.parse("coverage.xml").getroot().get("line-rate")) * 100
+          color = "#4c1" if pct >= 80 else "#97ca00" if pct >= 70 else "#dfb317" if pct >= 55 else "#e05d44"
+          label, value = "coverage", f"{pct:.0f}%"
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="104" height="20" role="img" aria-label="{label}: {value}">
+          <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#bbb" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
+          <clipPath id="r"><rect width="104" height="20" rx="3" fill="#fff"/></clipPath>
+          <g clip-path="url(#r)"><rect width="61" height="20" fill="#555"/><rect x="61" width="43" height="20" fill="{color}"/><rect width="104" height="20" fill="url(#s)"/></g>
+          <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+          <text x="30.5" y="14">{label}</text><text x="81.5" y="14">{value}</text></g></svg>'''
+          open("coverage.svg", "w").write(svg)
+          EOF
+      - name: Push to the badges branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q badges && cd badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan badges
+          mkdir -p badges && cp ../coverage.svg badges/coverage.svg
+          git add badges/coverage.svg && git commit -qm "coverage badge for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
 
   secret-scan:
     runs-on: ubuntu-latest
