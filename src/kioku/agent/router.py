@@ -107,6 +107,9 @@ _CLASSIFY_SYS = (
 
 
 async def _llm_classify(text: str) -> str | None:
+    from ..config import settings as _s
+    if _s.model_backend == "stub":                     # demo mode: heuristics only
+        return None
     try:
         from claude_agent_sdk import query, ClaudeAgentOptions
         from ..config import settings

@@ -120,3 +120,27 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  demo-smoke:
+    # Builds the image and boots the whole demo stack, then asks it a question end to end:
+    # API → Redis → Celery worker → retrieval over the sample vault → stub model → SSE back.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the demo stack
+        run: docker compose -f docker-compose.demo.yml up --build -d --wait api worker
+      - name: Ask it something
+        run: |
+          set -euo pipefail
+          H='Authorization: Bearer demo'
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/runs)" = 401   # token enforced
+          run=$(curl -sf -H "$H" -H 'content-type: application/json' \
+                -d '{"kind":"input","input":"what is blocking Jonas","source":"web"}' localhost:8000/tasks \
+                | python3 -c 'import sys, json; print(json.load(sys.stdin)["run_id"])')
+          timeout 60 curl -sN -H "$H" "localhost:8000/tasks/$run/stream" | tee stream.txt | grep -m1 '"type": "done"'
+          grep -q 'jonas-hartmann.md' stream.txt
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.demo.yml logs --no-color | tail -200
+      - if: always()
+        run: docker compose -f docker-compose.demo.yml down -v

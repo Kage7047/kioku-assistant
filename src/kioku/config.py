@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     assistant_name: str = "Kioku"          # 記憶 — "memory"
+    # sdk  — the Claude Agent SDK (real model, needs a subscription token or API key)
+    # stub — a deterministic stand-in that quotes retrieved notes: demos, local exploration, no key
+    model_backend: str = "sdk"
     anthropic_api_key: str = ""          # leave empty in subscription (MODE A) mode
     vault_path: str = "/vault"
 

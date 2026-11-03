@@ -214,3 +214,23 @@ async def test_empty_output_is_never_returned_as_blank(harness):
 def test_limit_note(text, expected):
     note = O._limit_note(text)
     assert (note is None) if expected is None else (expected in note)
+
+
+# ---- demo backend ----------------------------------------------------------------------------
+async def test_stub_backend_answers_from_retrieved_notes_without_the_sdk(harness, monkeypatch):
+    monkeypatch.setattr(settings, "model_backend", "stub")
+    monkeypatch.setattr("kioku.agent.stub.asyncio.sleep", _no_sleep)
+
+    async def hits(query, k):
+        return [{"path": "people/jonas-hartmann.md", "excerpt": "Wants DATEV export before he pays."}]
+
+    monkeypatch.setattr("kioku.memory.retrieval.hybrid_search", hits)
+    q = harness.model(fakes.text("the real SDK must not be called"))
+    out = await O.run_agent("r1", "what's blocking Jonas", intent="recall", retrieve_query="Jonas")
+    assert q.calls == []
+    assert "people/jonas-hartmann.md" in out["text"] and "DATEV" in out["text"]
+    assert out["cost_usd"] == 0.0 and out["tokens_in"] > 0
+
+
+async def _no_sleep(_s):
+    return None

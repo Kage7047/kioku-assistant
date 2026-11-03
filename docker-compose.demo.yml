@@ -1,0 +1,61 @@
+# One-command demo: `make demo`, then open http://localhost:8000 and enter the token `demo`.
+# Runs the real stack (API, worker, Postgres + pgvector, Redis) over the fictional sample vault,
+# with MODEL_BACKEND=stub so no API key or subscription is needed. The vault is copied into a
+# volume first, so the demo never edits the files in examples/vault.
+name: kioku-demo
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment: {POSTGRES_USER: kioku, POSTGRES_PASSWORD: kioku, POSTGRES_DB: kioku}
+    volumes:
+      - ./src/kioku/memory/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kioku"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  seed-vault:
+    image: alpine:3.20
+    command: ["sh", "-c", "[ -e /vault/README.md ] || cp -R /seed/. /vault/; chown -R 1000:1000 /vault"]
+    volumes:
+      - ./examples/vault:/seed:ro
+      - vault:/vault
+
+  api:
+    build: .
+    command: uvicorn kioku.api.main:app --host 0.0.0.0 --port 8000
+    env_file: [.env.demo]
+    ports: ["127.0.0.1:8000:8000"]
+    volumes: [vault:/vault]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      seed-vault: {condition: service_completed_successfully}
+
+  worker:
+    build: .
+    command: celery -A kioku.worker.celery_app.app worker --loglevel=info
+    env_file: [.env.demo]
+    volumes: [vault:/vault]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      seed-vault: {condition: service_completed_successfully}
+
+volumes:
+  vault:
