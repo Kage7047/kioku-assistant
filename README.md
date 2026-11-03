@@ -156,6 +156,18 @@ The full threat model — eleven findings, their fixes, and the risks deliberate
 [`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md); each control has a regression test in
 [`tests/unit/test_security.py`](tests/unit/test_security.py). Report issues privately: [`SECURITY.md`](SECURITY.md).
 
+## Retrieval, measured
+
+| | recall@5 | recall@1 | MRR@10 |
+|---|---|---|---|
+| BM25 only (embeddings off) | 0.75 | 0.68 | 0.71 |
+| vector only | 0.97 | 0.82 | 0.89 |
+| **hybrid (shipped)** | **0.97** | **0.85** | **0.90** |
+
+40 labelled queries (exact IDs, paraphrase, cross-lingual, vague) over a fictional sample vault,
+run against the production retrieval code. The first run showed the original fusion *losing* to
+vector search alone (0.82); the fix and the method are in [`eval/`](eval/README.md).
+
 ## Testing
 
 ```bash

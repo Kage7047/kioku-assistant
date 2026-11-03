@@ -1,5 +1,6 @@
 """Hybrid retrieval: Reciprocal Rank Fusion, the BM25 fallback, and chunking."""
 from kioku.memory import index, retrieval
+from kioku.memory import vault as V
 from tests.conftest import write_note
 
 
@@ -79,3 +80,26 @@ def test_chunking_never_drops_an_oversized_paragraph():
 
 def test_chunking_ignores_blank_paragraphs():
     assert index.chunk_note("\n\n\n  \n\nonly\n\n\n") == ["only"]
+
+
+# ---- shipped fusion (see eval/RESULTS.md for why) ----------------------------------------------
+def test_weighted_fusion_lets_the_semantic_first_hit_win():
+    lexical = _hits("noise-a", "noise-b", "answer")       # weak keyword matches first
+    semantic = _hits("answer", "noise-a")
+    assert retrieval.fuse(lexical, semantic, k=3)[0]["path"] == "answer"
+    # with equal weights the note in both lists on a weak match wins instead
+    assert retrieval._rrf(lexical, semantic, k=3)[0]["path"] == "noise-a"
+
+
+def test_fusion_counts_one_vote_per_note():
+    long_note = [{"path": "long.md", "excerpt": f"chunk {i}"} for i in range(3)]
+    fused = retrieval.fuse([], long_note + _hits("other.md"), k=2)
+    assert [h["path"] for h in fused] == ["long.md", "other.md"]
+
+
+def test_stopwords_only_matches_return_nothing_in_hybrid_mode(vault):
+    write_note(vault, "a.md", "what is the plan")
+    write_note(vault, "b.md", "pierogi recipe")
+    write_note(vault, "c.md", "lisbon hotel")
+    assert V.search("what is the", 3, stopwords=True) == []
+    assert V.search("what is the", 3)                    # BM25-only mode keeps function words
