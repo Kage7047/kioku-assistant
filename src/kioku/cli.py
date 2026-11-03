@@ -17,8 +17,15 @@ from .config import settings
 API = settings.resolved_api_base
 
 
+def _client(**kw) -> httpx.Client:
+    """The CLI is a separate process, so it authenticates with DASHBOARD_TOKEN (the API's random
+    per-process secret is not shared). Without one it only works against ALLOW_UNAUTHENTICATED=1."""
+    headers = {"Authorization": f"Bearer {settings.dashboard_token}"} if settings.dashboard_token else {}
+    return httpx.Client(headers=headers, **kw)
+
+
 def _stream(kind: str, text: str, difficulty: str = "triage"):
-    with httpx.Client(timeout=None) as c:
+    with _client(timeout=None) as c:
         run_id = c.post(f"{API}/tasks",
                         json={"kind": kind, "input": text, "difficulty": difficulty}).json()["run_id"]
         with c.stream("GET", f"{API}/tasks/{run_id}/stream") as s:
@@ -44,12 +51,16 @@ def main():
         print("usage: kioku <ask|audit|budget> [text]"); return
     cmd, rest = args[0], args[1:]
     if cmd == "budget":
-        print(json.dumps(httpx.get(f"{API}/budget").json(), indent=2)); return
+        with _client() as c:
+            print(json.dumps(c.get(f"{API}/budget").json(), indent=2))
+        return
     if cmd == "audit":
         _stream("vault_audit", "audit the vault"); return
     if cmd == "import":
         sub = rest[0] if rest else "_import"
-        print(httpx.post(f"{API}/bulk-ingest", params={"subdir": sub}).json()); return
+        with _client() as c:
+            print(c.post(f"{API}/bulk-ingest", params={"subdir": sub}).json())
+        return
     if cmd == "ask":
         text = sys.stdin.read() if rest[-1:] == ["-"] else " ".join(rest)
         _stream("ask", text)                      # force a direct answer

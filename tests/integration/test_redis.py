@@ -5,7 +5,7 @@ from kioku.memory import approvals, switch
 def test_staged_action_has_a_ttl_and_is_one_shot(real_redis, no_notify):
     rec = approvals.stage("mcp__composio__GMAIL_SEND_EMAIL", {"to": "anna@example.com"}, run_id="r1")
     assert 0 < real_redis.ttl(f"approval:{rec['id']}") <= approvals.APPROVAL_TTL
-    assert approvals.get(rec["id"][:5])["tool"] == "mcp__composio__GMAIL_SEND_EMAIL"
+    assert approvals.get(rec["id"][: approvals.MIN_PREFIX])["tool"] == "mcp__composio__GMAIL_SEND_EMAIL"
     assert approvals.pop(rec["id"]) is not None
     assert approvals.pop(rec["id"]) is None
     assert approvals.list_pending() == []
