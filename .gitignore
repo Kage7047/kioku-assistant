@@ -10,3 +10,4 @@ vault/
 .coverage
 coverage.xml
 junit.xml
+!examples/vault/

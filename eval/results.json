@@ -1,0 +1,46 @@
+{
+  "bm25 (fallback)": {
+    "recall@5": {
+      "all": 0.75,
+      "exact": 1.0,
+      "paraphrase": 0.643,
+      "crosslingual": 0.5,
+      "vague": 0.875
+    },
+    "recall@1": 0.675,
+    "mrr@10": 0.711
+  },
+  "vector": {
+    "recall@5": {
+      "all": 0.975,
+      "exact": 1.0,
+      "paraphrase": 0.929,
+      "crosslingual": 1.0,
+      "vague": 1.0
+    },
+    "recall@1": 0.825,
+    "mrr@10": 0.888
+  },
+  "hybrid v0 (before)": {
+    "recall@5": {
+      "all": 0.825,
+      "exact": 1.0,
+      "paraphrase": 0.714,
+      "crosslingual": 0.75,
+      "vague": 0.875
+    },
+    "recall@1": 0.725,
+    "mrr@10": 0.778
+  },
+  "hybrid (shipped)": {
+    "recall@5": {
+      "all": 0.975,
+      "exact": 1.0,
+      "paraphrase": 0.929,
+      "crosslingual": 1.0,
+      "vague": 1.0
+    },
+    "recall@1": 0.85,
+    "mrr@10": 0.897
+  }
+}

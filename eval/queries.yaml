@@ -1,0 +1,51 @@
+# Labelled queries over examples/vault. `relevant` lists the note(s) that answer the query.
+# Categories:
+#   exact       — shares rare tokens with the answer (IDs, names, jargon): lexical should win
+#   paraphrase  — same meaning, different words: semantic should win
+#   crosslingual — query and note in different languages
+#   vague       — short, underspecified, the way people actually ask
+queries:
+  # ---- exact ----
+  - {q: "INV-2026-0412 reference text", relevant: [projects/ledgerline/matching-algorithm.md], category: exact}
+  - {q: "DATEV EXTF BU keys", relevant: [meetings/2026-10-09-hartmann.md], category: exact}
+  - {q: "Umsatzsteuervoranmeldung", relevant: [areas/finance/taxes.md], category: exact}
+  - {q: "Sines buoy", relevant: [projects/tidepool/data-sources.md], category: exact}
+  - {q: "TimescaleDB swell period Ericeira", relevant: [projects/tidepool/overview.md], category: exact}
+  - {q: "visibility timeout 3600", relevant: [infra/celery-queues.md], category: exact}
+  - {q: "Herr Brandt lease", relevant: [reference/apartment.md], category: exact}
+  - {q: "Marta Kowalczyk", relevant: [people/marta-kowalczyk.md], category: exact}
+  - {q: "pg_dump age encryption retention", relevant: [infra/postgres-backups.md], category: exact}
+  - {q: "BER LIS 14 Nov Alfama", relevant: [reference/travel/lisbon-trip.md], category: exact}
+  # ---- paraphrase ----
+  - {q: "how do we make sure a payment is never booked twice", relevant: [projects/ledgerline/incident-2026-09-14.md], category: paraphrase}
+  - {q: "what does the product cost customers", relevant: [projects/ledgerline/pricing.md], category: paraphrase}
+  - {q: "can I restore the database if the server dies", relevant: [infra/postgres-backups.md], category: paraphrase}
+  - {q: "why don't we use container orchestration", relevant: [infra/kubernetes-notes.md], category: paraphrase}
+  - {q: "my knee hurts after training", relevant: [areas/health/running.md], category: paraphrase}
+  - {q: "tips for falling asleep", relevant: [areas/health/sleep.md], category: paraphrase}
+  - {q: "how much money should I keep aside for bad months", relevant: [areas/finance/budget.md], category: paraphrase}
+  - {q: "who drew our logo", relevant: [people/lena-sato.md], category: paraphrase}
+  - {q: "a customer paying one transfer for two bills", relevant: [meetings/2026-10-02-kowalczyk.md], category: paraphrase}
+  - {q: "where are API keys and passwords stored", relevant: [infra/secrets.md], category: paraphrase}
+  - {q: "what gets us paged in the middle of the night", relevant: [infra/observability.md], category: paraphrase}
+  - {q: "spicy egg dish with tomatoes", relevant: [reference/recipes/shakshuka.md], category: paraphrase}
+  - {q: "something vegan I can freeze", relevant: [reference/recipes/dal.md], category: paraphrase}
+  - {q: "what to bring on the Portugal trip", relevant: [reference/travel/packing.md], category: paraphrase}
+  # ---- cross-lingual ----
+  - {q: "tax advisor appointment home office deduction", relevant: [notes/de/steuerberater-termin.md], category: crosslingual}
+  - {q: "trial agreement with the Polish firm, is it free?", relevant: [notes/pl/umowa-pilotazowa.md], category: crosslingual}
+  - {q: "surf lessons booking", relevant: [notes/es/clases-de-surf.md], category: crosslingual}
+  - {q: "Postgres conference talk on partitioning", relevant: [notes/fr/conference-pgconf.md], category: crosslingual}
+  - {q: "Wann muss ich die Belege einreichen?", relevant: [notes/de/steuerberater-termin.md], category: crosslingual}
+  - {q: "¿cuándo es el viaje a Lisboa?", relevant: [reference/travel/lisbon-trip.md], category: crosslingual}
+  - {q: "ile kosztuje Ledgerline po pilotażu?", relevant: [notes/pl/umowa-pilotazowa.md, projects/ledgerline/pricing.md], category: crosslingual}
+  - {q: "quels clients pilotes avons-nous ?", relevant: [projects/ledgerline/overview.md, people/marta-kowalczyk.md, people/jonas-hartmann.md], category: crosslingual}
+  # ---- vague ----
+  - {q: "what's blocking Jonas", relevant: [meetings/2026-10-09-hartmann.md, people/jonas-hartmann.md], category: vague}
+  - {q: "next steps for the invoice product", relevant: [projects/ledgerline/roadmap.md], category: vague}
+  - {q: "surf side project", relevant: [projects/tidepool/overview.md], category: vague}
+  - {q: "that retry bug", relevant: [projects/ledgerline/incident-2026-09-14.md], category: vague}
+  - {q: "half marathon", relevant: [areas/health/running.md], category: vague}
+  - {q: "keyboard shortcuts idea", relevant: [inbox/idea-review-shortcuts.md], category: vague}
+  - {q: "how was last week", relevant: [journal/2026-10-27.md], category: vague}
+  - {q: "who can I ask about payments edge cases", relevant: [people/priya-raman.md], category: vague}
