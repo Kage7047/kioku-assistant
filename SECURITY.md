@@ -23,7 +23,7 @@ credentials or a compromised host.
 
 ## Deploying safely
 
-- Set `DASHBOARD_TOKEN` (a long random value) before the API is reachable from anywhere but localhost.
+- Set `DASHBOARD_TOKEN` (a long random value). Without it the dashboard, CLI and runner can't reach the API.
 - Set `TELEGRAM_ALLOWED_USER_ID` so the bot answers only you.
 - Give connectors the narrowest scopes they offer; use a read-only role for `APP_DB_URL`.
 - Never commit `.env`. CI runs gitleaks over the full history on every push.

@@ -28,11 +28,12 @@ APPROVAL_TTL = 86400  # a staged action stays approvable for 24h
 _NEVER_GATE_PREFIX = ("mcp__vault__", "mcp__scheduler__", "mcp__watch__", "mcp__calendar__")
 _NEVER_GATE_EXACT = {"websearch", "webfetch", "agent", "todowrite"}
 
-# Hand-off tools reach the owner's own machine. handoff_code runs an open-ended Claude Code session
-# with access to local files, scaffold writes code, browser_task drives a real browser: all gated.
-# run_tests / lint / index_repo / review_diff are bounded, read-mostly commands the runner allow-lists.
+# Hand-off tools reach the owner's own machine. Anything that starts a Claude Code session there
+# (handoff_code, and the scaffold / review_diff dev tasks, which take free-form text and run with
+# edit permissions) or drives a real browser is gated. Only the fixed commands — run_tests, lint and
+# index_repo (git ls-files) — run without approval, and the runner refuses any other kind.
 _HANDOFF_GATED = {"mcp__handoff__handoff_code", "mcp__handoff__browser_task"}
-_HANDOFF_GATED_KINDS = {"scaffold"}
+_HANDOFF_FREE_KINDS = {"run_tests", "lint", "index_repo"}
 
 # External connector tools (Composio, remote MCP) are DEFAULT-DENY. A name-based deny-list misses
 # whatever it didn't think of — GMAIL_REPLY_TO_THREAD, GMAIL_FORWARD_MESSAGE, SLACK_INVITE_USER and
@@ -63,7 +64,9 @@ def is_outbound(tool: str, inp: dict | None = None) -> bool:
     if low.startswith("mcp__handoff__"):
         if low in _HANDOFF_GATED:
             return True
-        return low == "mcp__handoff__dev_task" and (inp or {}).get("kind") in _HANDOFF_GATED_KINDS
+        if low == "mcp__handoff__dev_task":
+            return (inp or {}).get("kind") not in _HANDOFF_FREE_KINDS      # unknown kinds gate too
+        return False
     if not low.startswith("mcp__"):
         return False                 # remaining built-ins are either read-only or disallowed outright
     verbs = _verbs(low)

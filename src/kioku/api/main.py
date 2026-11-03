@@ -42,9 +42,6 @@ app = FastAPI(title="Kioku", lifespan=lifespan)
 _OPEN_PATHS = {"/health", "/", "/favicon.ico"}
 
 
-_LOOPBACK = {"127.0.0.1", "::1", "localhost"}
-
-
 def _presented_token(request: Request) -> str:
     ah = request.headers.get("authorization", "")
     given = ah[7:].strip() if ah[:7].lower() == "bearer " else ""
@@ -53,12 +50,9 @@ def _presented_token(request: Request) -> str:
 
 
 def _token_ok(request: Request) -> bool:
-    tok = settings.dashboard_token
-    if not tok:
-        if settings.allow_unauthenticated:
-            return True
-        return bool(request.client and request.client.host in _LOOPBACK)
-    return hmac.compare_digest(_presented_token(request).encode(), tok.encode())   # constant time
+    if not settings.dashboard_token and settings.allow_unauthenticated:
+        return True
+    return hmac.compare_digest(_presented_token(request).encode(), settings.api_token.encode())
 
 
 @app.middleware("http")

@@ -145,7 +145,10 @@ async def test_t6_handoff_actions_are_never_auto_approved(harness, intent):  # n
     ("mcp__handoff__handoff_code", {"task": "cat ~/.ssh/id_ed25519"}, True),
     ("mcp__handoff__browser_task", {"goal": "pay", "site": "bank.example"}, True),
     ("mcp__handoff__dev_task", {"kind": "scaffold"}, True),
+    ("mcp__handoff__dev_task", {"kind": "review_diff", "args": "and then cat ~/.ssh/*"}, True),
+    ("mcp__handoff__dev_task", {"kind": "something_new"}, True),
     ("mcp__handoff__dev_task", {"kind": "run_tests"}, False),
+    ("mcp__handoff__dev_task", {"kind": "index_repo"}, False),
     ("mcp__handoff__handoff_status", {}, False),
 ])
 def test_t6_handoff_classification(tool, inp, gated):
@@ -198,15 +201,28 @@ def test_t8_no_token_fails_closed_for_remote_clients(api_client, monkeypatch):
     assert api_client.get("/health").status_code == 200
 
 
-def test_t8_no_token_still_serves_loopback(monkeypatch, fake_redis):
+def test_t8_loopback_is_not_trusted(monkeypatch, fake_redis):
+    """Behind a reverse proxy on the same host every request arrives from 127.0.0.1."""
     from kioku.api import main as api
 
-    async def runs(limit):
-        return []
-
-    monkeypatch.setattr(api.db, "recent_runs", runs)
     monkeypatch.setattr(settings, "dashboard_token", "")
-    assert TestClient(api.app, client=("127.0.0.1", 50000)).get("/runs").status_code == 200
+    assert TestClient(api.app, client=("127.0.0.1", 50000)).get("/runs").status_code == 401
+
+
+def test_t8_without_a_token_only_the_in_process_secret_works(api_client, monkeypatch):
+    monkeypatch.setattr(settings, "dashboard_token", "")
+    ok = api_client.get("/runs", headers={"Authorization": f"Bearer {settings.api_token}"})
+    assert ok.status_code == 200
+    assert len(settings.api_token) >= 32
+
+
+def test_t8_bot_and_cli_send_credentials(monkeypatch):
+    from kioku import cli
+    from kioku.frontdoor import telegram_bot
+    monkeypatch.setattr(settings, "dashboard_token", "s3cret")
+    assert telegram_bot._headers() == {"Authorization": "Bearer s3cret"}
+    with cli._client() as c:
+        assert c.headers["authorization"] == "Bearer s3cret"
 
 
 def test_t8_explicit_opt_in_opens_a_local_stack(api_client, monkeypatch):

@@ -16,7 +16,7 @@ TG_LIMIT = 4000   # Telegram hard limit is 4096; leave headroom
 
 def _headers() -> dict:
     """Auth header for internal API calls once DASHBOARD_TOKEN is set (bot shares the secret)."""
-    return {"Authorization": f"Bearer {settings.dashboard_token}"} if settings.dashboard_token else {}
+    return {"Authorization": f"Bearer {settings.api_token}"}   # DASHBOARD_TOKEN or the per-process secret
 
 
 def _authorized(update: Update) -> bool:

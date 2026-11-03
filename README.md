@@ -139,7 +139,7 @@ can be tricked and limits what a tricked model can do — in code, outside the m
 - **Scoped approvals.** An approved action runs with exactly the approved tool and arguments, once.
 - **Protected vault zones.** `.git/` is never writable and the `system/` config spine changes only via
   an approved edit — checked on resolved paths, so `..` and symlinks don't get around it.
-- **Fail-closed API.** Constant-time token check; with no token set, only localhost gets in.
+- **Fail-closed API.** Constant-time token check; with no token set, the API accepts only its own in-process bot.
 
 The full threat model — eleven findings, their fixes, and the risks deliberately accepted — is in
 [`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md); each control has a regression test in
