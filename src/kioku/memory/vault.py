@@ -16,44 +16,65 @@ def _md_files() -> list[Path]:
     return [p for p in VAULT.rglob("*.md") if ".obsidian" not in p.parts]
 
 
-def list_dir(rel: str = "") -> list[str]:
-    base = (VAULT / rel).resolve()
-    base.relative_to(VAULT.resolve())  # guard: stay inside the vault
-    return sorted(str(p.relative_to(VAULT)) for p in base.iterdir())
+# Kioku owns its vault outright — it may create, edit, delete and move freely (this is its memory).
+# Two zones are protected, and the check runs on the RESOLVED path, so `foo/../system/x`,
+# `./system/x` and symlinks cannot sidestep it:
+#   .git/    — never writable by anyone through this module. Writing .git/config could set
+#              core.fsmonitor / core.hooksPath and run commands the next time the worker commits.
+#   system/  — Kioku's config spine (persona, playbook, profile). A prompt injection that rewrote
+#              it would persist across every future run, so model-driven writes are refused here;
+#              changes go through approvals.stage_config_edit and land with approved=True.
+_GIT = ".git"
+_SYSTEM = "system"
 
 
-def read(rel: str) -> str:
-    p = (VAULT / rel).resolve()
-    p.relative_to(VAULT.resolve())
-    return p.read_text(encoding="utf-8")
-
-
-def write(rel: str, content: str, approved: bool = False) -> str:
-    p = (VAULT / rel).resolve()
-    p.relative_to(VAULT.resolve())
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
-    return str(p.relative_to(VAULT))
-
-
-# Kioku owns its vault outright — it may create, edit, delete, and move freely (this is its memory).
-# The only guard: it cannot delete/overwrite its own config spine (system/) or git internals, so it
-# can never nuke its persona/playbook/profile. Everything else is fair game, no approval needed.
-_PROTECTED = ("system", ".git")
-
-
-def _guard_mutate(rel: str) -> Path:
-    p = (VAULT / rel).resolve()
-    p.relative_to(VAULT.resolve())                 # stay inside the vault
-    if (Path(rel).parts[:1] or [""])[0] in _PROTECTED:
-        raise PermissionError(f"refusing to delete/move inside protected '{rel}' (config spine)")
+def _resolve(rel: str) -> Path:
+    """Resolve a vault-relative path and refuse anything outside the vault (raises ValueError)."""
+    root = VAULT.resolve()
+    p = (root / rel).resolve()
+    p.relative_to(root)
     return p
 
 
+def _zone(p: Path) -> str:
+    parts = p.relative_to(VAULT.resolve()).parts
+    return parts[0] if parts else ""
+
+
+def _guard_write(p: Path, approved: bool) -> None:
+    zone = _zone(p)
+    if zone == _GIT:
+        raise PermissionError("refusing to touch .git — git internals are never writable")
+    if zone == _SYSTEM and not approved:
+        raise PermissionError("system/ is Kioku's config spine; propose the change for approval instead")
+    if p == VAULT.resolve():
+        raise PermissionError("refusing to operate on the vault root")
+
+
+def list_dir(rel: str = "") -> list[str]:
+    base = _resolve(rel)
+    return sorted(str(p.relative_to(VAULT.resolve())) for p in base.iterdir())
+
+
+def read(rel: str) -> str:
+    return _resolve(rel).read_text(encoding="utf-8")
+
+
+def write(rel: str, content: str, approved: bool = False) -> str:
+    """Create or overwrite a note. `approved=True` is for trusted internal writers (scheduler,
+    patterns, an approved config edit) — never for a path chosen by the model."""
+    p = _resolve(rel)
+    _guard_write(p, approved)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(content, encoding="utf-8")
+    return str(p.relative_to(VAULT.resolve()))
+
+
 def delete(rel: str) -> str:
-    """Delete a vault file (or an empty/whole dir). Protected: system/ and .git."""
+    """Delete a vault file or directory. Protected: system/ and .git."""
     import shutil
-    p = _guard_mutate(rel)
+    p = _resolve(rel)
+    _guard_write(p, approved=False)
     if p.is_dir():
         shutil.rmtree(p)
     elif p.exists():
@@ -62,16 +83,16 @@ def delete(rel: str) -> str:
 
 
 def move(src: str, dst: str) -> str:
-    """Move/rename a vault path. Source is guarded (not system/); dest just stays inside the vault."""
-    s = _guard_mutate(src)
-    d = (VAULT / dst).resolve()
-    d.relative_to(VAULT.resolve())
+    """Move/rename a vault path. Neither side may be inside system/ or .git."""
+    s, d = _resolve(src), _resolve(dst)
+    _guard_write(s, approved=False)
+    _guard_write(d, approved=False)
     d.parent.mkdir(parents=True, exist_ok=True)
     s.replace(d)
     return dst
 
 
-def apply_writes(items: list[dict]) -> list[str]:
+def apply_writes(items: list[dict], approved: bool = False) -> list[str]:
     """Apply many writes as one recoverable transaction (back up, write, roll back on error).
 
     Used by the orchestrator to commit sub-agent drafts. items: [{path, content}].
@@ -80,12 +101,12 @@ def apply_writes(items: list[dict]) -> list[str]:
     applied: list[str] = []
     try:
         for it in items:
-            p = (VAULT / it["path"]).resolve()
-            p.relative_to(VAULT.resolve())
+            p = _resolve(it["path"])
+            _guard_write(p, approved)
             backups.append((p, p.read_text(encoding="utf-8") if p.exists() else None))
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(it["content"], encoding="utf-8")
-            applied.append(str(p.relative_to(VAULT)))
+            applied.append(str(p.relative_to(VAULT.resolve())))
         return applied
     except Exception:
         for p, prev in reversed(backups):          # roll back
