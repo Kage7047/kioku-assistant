@@ -199,16 +199,10 @@ More in [`tests/README.md`](tests/README.md).
 
 ## Command center
 
-The web UI is a single self-contained SPA served same-origin from the API (no separate
-frontend, no CORS) — one dark, information-dense surface for chat, live runs, the approval
-inbox, agent-credit budget, activity feed, and learned skills.
-
-<p align="center">
-  <img src="assets/command-center-mobile.png" alt="Kioku command center (mobile)" width="300">
-</p>
-
-The source mockups (desktop + mobile) live in [`mockups/`](mockups/); the live UI ships in
-[`src/kioku/api/static/index.html`](src/kioku/api/static/index.html).
+A Vite + React app ([`web/`](web/README.md)) built into the API's static folder and served
+same-origin — chat with live streaming, runs, agent credit, the approval inbox, activity, a living
+knowledge graph of the vault, skills and people. GSAP drives the motion, Lenis the scrolling,
+React Bits supplies the cards and micro-interactions; it respects reduce-motion and works on a phone.
 
 ## Design principles
 

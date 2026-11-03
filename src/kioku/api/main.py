@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -80,7 +81,12 @@ async def health():
     return {"ok": True}
 
 
-_DASHBOARD = Path(__file__).parent / "static" / "index.html"
+_STATIC = Path(__file__).parent / "static"
+_DASHBOARD = _STATIC / "index.html"
+# The command center is a Vite build (web/ → static/). Its hashed assets load before sign-in, so
+# /static is an open path in the auth middleware; every data call is still token-gated.
+if (_STATIC / "assets").is_dir():
+    app.mount("/static/assets", StaticFiles(directory=_STATIC / "assets"), name="assets")
 
 
 @app.get("/")
@@ -138,9 +144,18 @@ async def status():
             state = "off"
         conns.append({"name": c["name"], "kind": c.get("kind"), "enabled": enabled,
                       "state": state, "last_seen": last_seen.get(c["name"])})
+    vault_health = (health_sig or {}).get("value")
+    if not vault_health:                     # no nightly signal yet: a cheap, deterministic inventory
+        try:
+            from ..memory import vault as V
+            inv = V.audit_inventory()
+            vault_health = {"files": inv["file_count"], "orphans": inv["orphan_count"],
+                            "dead_links": inv["dead_link_count"], "by_dir": inv["by_dir"]}
+        except Exception:  # noqa: BLE001 — the API may not have the vault mounted (worker owns it)
+            vault_health = None
     return {
         "budget": b,
-        "vault": (health_sig or {}).get("value"),
+        "vault": vault_health,
         "vault_observed_at": (health_sig or {}).get("observed_at"),
         "claims": (claims_sig or {}).get("value"),
         "connectors": conns,

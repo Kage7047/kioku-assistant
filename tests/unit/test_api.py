@@ -80,3 +80,11 @@ def test_task_dispatch_routes_by_kind(client, token, kind, task):
     assert r.status_code == 200
     assert r.json()["stream"] == f"/tasks/{r.json()['run_id']}/stream"
     assert client.dispatched[0][0] == task
+
+
+def test_dashboard_and_its_assets_load_before_sign_in(client, token):
+    page = client.get("/")
+    assert page.status_code == 200 and "/static/assets/" in page.text
+    asset = page.text.split('src="')[1].split('"')[0]
+    assert client.get(asset).status_code == 200            # no token needed for the shell
+    assert client.get("/status").status_code == 401         # but every data call is gated
