@@ -1,0 +1,150 @@
+"""Retrieval evaluation: how well does each ranker find the right note?
+
+Runs the production code paths over examples/vault against the labelled queries in queries.yaml:
+
+  bm25 (fallback)     memory.vault.search — the lexical ranker, used alone when vectors are off
+  vector              the pgvector query in memory.retrieval._vector_search, reproduced in memory
+                      (cosine distance over chunks from memory.index.chunk_note)
+  hybrid v0 (before)  the original fusion: equal-weight RRF, function words kept
+  hybrid (shipped)    memory.retrieval.fuse — what hybrid_search does today
+
+Metrics: recall@1, recall@5 (any relevant note in the top k) and MRR@10, overall and per
+category. No API key or database needed; the embedding model runs locally.
+
+    pip install -e ".[dev,local-embeddings]"
+    python eval/run_eval.py                # prints the table, writes eval/RESULTS.md
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+os.environ.setdefault("VAULT_PATH", str(ROOT / "examples/vault"))
+os.environ.setdefault("EMBEDDING_BACKEND", "local")
+sys.path.insert(0, str(ROOT / "src"))
+
+import numpy as np  # noqa: E402
+import yaml  # noqa: E402
+
+from kioku.config import settings  # noqa: E402
+from kioku.memory import embeddings, index, retrieval  # noqa: E402
+from kioku.memory import vault as V  # noqa: E402
+
+K_CANDIDATES = 3            # hybrid_search asks each ranker for k * 3 candidates
+K_FINAL = 10
+
+
+class ChunkIndex:
+    """In-memory stand-in for the `chunks` table + `ORDER BY embedding <=> $1 LIMIT $2`."""
+
+    def __init__(self):
+        self.paths: list[str] = []
+        texts: list[str] = []
+        for f in V._md_files():
+            rel = str(f.relative_to(V.VAULT))
+            for chunk in index.chunk_note(f.read_text(encoding="utf-8")):
+                self.paths.append(rel)
+                texts.append(chunk)
+        self.texts = texts
+        vecs = embeddings.embed_passages(texts)
+        if vecs is None:
+            sys.exit("embedding model unavailable: pip install -e '.[local-embeddings]'")
+        self.matrix = np.asarray(vecs, dtype=np.float32)
+
+    def search(self, query: str, n: int) -> list[dict]:
+        q = np.asarray(embeddings.embed_query(query), dtype=np.float32)
+        sims = self.matrix @ q                       # vectors are L2-normalised → cosine
+        top = np.argsort(-sims)[:n]
+        return [{"path": self.paths[i], "excerpt": self.texts[i][:400]} for i in top]
+
+
+def dedup(hits: list[dict]) -> list[dict]:
+    seen, out = set(), []
+    for h in hits:
+        if h["path"] not in seen:
+            seen.add(h["path"])
+            out.append(h)
+    return out
+
+
+def rankers(chunks: ChunkIndex):
+    n = K_FINAL * K_CANDIDATES
+    cache: dict[str, list] = {}
+
+    def vec(q):
+        if q not in cache:
+            cache[q] = chunks.search(q, n)
+        return cache[q]
+
+    return {
+        "bm25 (fallback)": lambda q: V.search(q, n),
+        "vector": lambda q: dedup(vec(q)),
+        # what hybrid_search did before eval/ existed: equal weights, function words kept,
+        # every chunk of a note voting separately
+        "hybrid v0 (before)": lambda q: retrieval._rrf(V.search(q, n), vec(q), k=K_FINAL),
+        # what hybrid_search does now (memory.retrieval.fuse)
+        "hybrid (shipped)": lambda q: retrieval.fuse(V.search(q, n, stopwords=True), vec(q), K_FINAL),
+    }
+
+
+def score(ranked: list[str], relevant: set[str]) -> dict:
+    first = next((i for i, p in enumerate(ranked[:K_FINAL]) if p in relevant), None)
+    return {"r@1": float(first == 0), "r@5": float(first is not None and first < 5),
+            "mrr": 0.0 if first is None else 1.0 / (first + 1)}
+
+
+def main() -> None:
+    queries = yaml.safe_load((ROOT / "eval/queries.yaml").read_text())["queries"]
+    t0 = time.time()
+    chunks = ChunkIndex()
+    t_index = time.time() - t0
+    results: dict[str, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    misses: dict[str, list[str]] = defaultdict(list)
+    for name, rank in rankers(chunks).items():
+        for item in queries:
+            ranked = [h["path"] for h in rank(item["q"])]
+            s = score(ranked, set(item["relevant"]))
+            results[name][item["category"]].append(s)
+            results[name]["all"].append(s)
+            if s["r@5"] == 0:
+                misses[name].append(item["q"])
+
+    def mean(rows, key):
+        return sum(r[key] for r in rows) / len(rows)
+
+    cats = ["all", "exact", "paraphrase", "crosslingual", "vague"]
+    counts = {c: len(next(iter(results.values()))[c]) for c in cats}
+    lines = [
+        "# Retrieval evaluation",
+        "",
+        f"{len(queries)} labelled queries over the {len(chunks.paths)}-chunk sample vault "
+        f"(`examples/vault`), embedding model `{settings.embedding_model}`. "
+        "Generated by `python eval/run_eval.py`; numbers are recall@5 unless noted.",
+        "",
+        "| Ranker | " + " | ".join(f"{c} (n={counts[c]})" for c in cats) + " | recall@1 | MRR@10 |",
+        "|---" * (len(cats) + 3) + "|",
+    ]
+    summary = {}
+    for name in results:
+        row = [f"{mean(results[name][c], 'r@5'):.2f}" for c in cats]
+        r1, mrr = mean(results[name]["all"], "r@1"), mean(results[name]["all"], "mrr")
+        summary[name] = {"recall@5": {c: round(mean(results[name][c], "r@5"), 3) for c in cats},
+                         "recall@1": round(r1, 3), "mrr@10": round(mrr, 3)}
+        lines.append(f"| {name} | " + " | ".join(row) + f" | {r1:.2f} | {mrr:.2f} |")
+    lines += ["", "## Misses (relevant note not in the top 5)", ""]
+    for name in results:
+        lines.append(f"- **{name}** ({len(misses[name])}): " + ("; ".join(f"“{q}”" for q in misses[name]) or "none"))
+    lines += ["", f"Index build: {t_index:.1f}s for {len(chunks.paths)} chunks on CPU."]
+    report = "\n".join(lines) + "\n"
+    print(report)
+    (ROOT / "eval/RESULTS.md").write_text(report)
+    (ROOT / "eval/results.json").write_text(json.dumps(summary, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()
