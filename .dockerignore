@@ -12,3 +12,9 @@ docs/
 mockups/
 .pytest_cache/
 .ruff_cache/
+tests/
+eval/
+examples/
+.mypy_cache/
+*.egg-info/
+.github/

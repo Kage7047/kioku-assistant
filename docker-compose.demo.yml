@@ -26,7 +26,7 @@ services:
 
   seed-vault:
     image: alpine:3.20
-    command: ["sh", "-c", "[ -e /vault/README.md ] || cp -R /seed/. /vault/"]
+    command: ["sh", "-c", "[ -e /vault/README.md ] || cp -R /seed/. /vault/; chown -R 1000:1000 /vault"]
     volumes:
       - ./examples/vault:/seed:ro
       - vault:/vault
