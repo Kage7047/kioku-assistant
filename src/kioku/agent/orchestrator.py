@@ -5,6 +5,7 @@ gate.py (what needs the owner's approval) and usage.py (what it cost).
 """
 import asyncio
 import json
+from typing import Any
 
 import redis.asyncio as aioredis
 from claude_agent_sdk import query, ClaudeAgentOptions
@@ -135,7 +136,7 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
         options = ClaudeAgentOptions(**opt_kwargs)
 
     await _emit(run_id, {"type": "start", "model": model, "mode": b["mode"]})
-    state = {"text": "", "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0,
+    state: dict[str, Any] = {"text": "", "tokens_in": 0, "tokens_out": 0, "cache_read": 0, "cache_write": 0,
              "cost_usd": None}
     usage_meter = UsageMeter()
 

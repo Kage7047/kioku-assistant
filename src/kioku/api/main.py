@@ -194,11 +194,12 @@ async def ingest(file: UploadFile = File(...)):
     """Upload a file/photo to learn from it. Any interface can POST multipart here."""
     import base64
     data = await file.read()
+    name = file.filename or "upload.bin"      # multipart may omit the filename
     if len(data) > 12_000_000:
         raise HTTPException(413, "file too large for inline ingest (>12MB) — use object storage")
-    run_id = await db.create_run("ingest", file.filename, "triage")
-    ingest_task.delay(run_id, base64.b64encode(data).decode(), file.filename, "upload")
-    return {"run_id": run_id, "file": file.filename}
+    run_id = await db.create_run("ingest", name, "triage")
+    ingest_task.delay(run_id, base64.b64encode(data).decode(), name, "upload")
+    return {"run_id": run_id, "file": name}
 
 
 @app.get("/tasks/{run_id}/stream")

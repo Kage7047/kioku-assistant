@@ -52,6 +52,8 @@ jobs:
         run: |   # setup-uv (with python-version) already created and activated .venv
           uv pip install -e ".[dev]"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Type check (mypy, typed core)
+        run: mypy
       - name: Unit + integration tests with coverage
         run: pytest --cov --cov-report=term --cov-report=xml --junitxml=junit.xml
       - name: Coverage summary
