@@ -11,15 +11,22 @@ import asyncio
 from types import SimpleNamespace
 
 
-def text(t: str, *, tokens_in: int = 0, tokens_out: int = 0, **cache) -> SimpleNamespace:
-    """An AssistantMessage carrying one TextBlock."""
-    return SimpleNamespace(content=[SimpleNamespace(text=t)],
+_ids = iter(range(1, 1_000_000))
+
+
+def text(t: str, *, tokens_in: int = 0, tokens_out: int = 0, message_id: str | None = None,
+         **cache) -> SimpleNamespace:
+    """An AssistantMessage carrying one TextBlock. Each call is its own API response unless a
+    message_id is shared (Claude Code repeats a response's usage on each of its blocks)."""
+    return SimpleNamespace(content=[SimpleNamespace(text=t)], message_id=message_id or f"msg_{next(_ids)}",
                            usage=_usage(tokens_in, tokens_out, **cache) if tokens_in or tokens_out else None)
 
 
-def result(r: str = "", *, tokens_in: int = 0, tokens_out: int = 0, **cache) -> SimpleNamespace:
-    """The terminal ResultMessage."""
-    return SimpleNamespace(content=None, result=r, usage=_usage(tokens_in, tokens_out, **cache))
+def result(r: str = "", *, tokens_in: int = 0, tokens_out: int = 0, cost: float | None = None,
+           **cache) -> SimpleNamespace:
+    """The terminal ResultMessage: session totals and the SDK's own cost."""
+    return SimpleNamespace(content=None, result=r, total_cost_usd=cost,
+                           usage=_usage(tokens_in, tokens_out, **cache))
 
 
 def _usage(tokens_in: int, tokens_out: int, cache_read: int = 0, cache_write: int = 0) -> dict:

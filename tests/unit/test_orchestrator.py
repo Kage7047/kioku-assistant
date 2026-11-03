@@ -42,13 +42,32 @@ def harness(monkeypatch, vault, fake_redis, no_notify):
 async def test_happy_path_streams_text_and_counts_tokens(harness):
     q = harness.model(fakes.text("Your dentist is Thursday ", tokens_in=1200, tokens_out=40),
                       fakes.text("at 9:30.", tokens_in=0, tokens_out=10, cache_read=900),
-                      fakes.result("ignored because text was streamed", tokens_in=0, tokens_out=0))
+                      fakes.result("ignored because text was streamed", tokens_in=1200, tokens_out=50,
+                                   cache_read=900, cost=0.0031))
     out = await O.run_agent("r1", "when is the dentist?", difficulty="triage", intent="recall")
     assert out["text"] == "Your dentist is Thursday at 9:30."
     assert (out["tokens_in"], out["tokens_out"], out["cache_read"]) == (1200, 50, 900)
+    assert out["cost_usd"] == 0.0031
     assert out["skipped"] is False
     assert [e["type"] for e in harness.events] == ["preflight", "start", "text", "text", "done"]
     assert q.last_options.model == settings.model_triage
+
+
+def test_usage_is_counted_once_per_api_response():
+    """Claude Code repeats one response's usage on each of its content blocks."""
+    m = O.UsageMeter()
+    for _ in range(3):                                   # three blocks of the same response
+        m.observe(fakes.text("x", tokens_in=1000, tokens_out=20, message_id="msg_1"))
+    m.observe(fakes.text("y", tokens_in=300, tokens_out=5, message_id="msg_2"))
+    assert m.totals()["tokens_in"] == 1300 and m.totals()["tokens_out"] == 25
+
+
+def test_result_totals_and_sdk_cost_win():
+    m = O.UsageMeter()
+    m.observe(fakes.text("x", tokens_in=1000, tokens_out=20, message_id="msg_1"))
+    m.observe(fakes.result("done", tokens_in=1000, tokens_out=20, cache_read=5000, cost=0.012))
+    t = m.totals()
+    assert (t["tokens_in"], t["cache_read"], t["cost_usd"]) == (1000, 5000, 0.012)
 
 
 async def test_result_message_is_used_when_no_text_blocks_arrive(harness):

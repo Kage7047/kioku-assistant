@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""          # leave empty in subscription (MODE A) mode
     vault_path: str = "/vault"
 
-    model_triage: str = "claude-haiku-4-5"
-    model_work: str = "claude-sonnet-5"
-    model_orchestrator: str = "claude-opus-4-8"
-    model_hard: str = "claude-fable-5"    # on Pro credit: essentially never auto-used
+    model_triage: str = "claude-haiku-5-5"
+    model_work: str = "claude-sonnet-5-5"
+    model_orchestrator: str = "claude-opus-5-5"
+    model_hard: str = "claude-fable-5-1"  # on a personal plan's credit: essentially never auto-used
 
     # Turn budgets are GENEROUS on purpose — the #1 cause of failures was a 6-turn cap killing
     # real work mid-run. Heavy/background work (organize, learn, project runs) needs room to finish.

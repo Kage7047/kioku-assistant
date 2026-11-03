@@ -20,8 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Ruff (errors only — syntax, undefined names)
-        run: pipx run ruff check --select E9,F63,F7,F82 --output-format github .
+      - name: Ruff (project rules — pyflakes, bugbear, pyupgrade, simplify)
+        run: pipx run ruff check --output-format github .
       - name: Byte-compile
         run: python -m compileall -q .
 
@@ -52,6 +52,8 @@ jobs:
         run: |   # setup-uv (with python-version) already created and activated .venv
           uv pip install -e ".[dev]"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Type check (mypy, typed core)
+        run: mypy
       - name: Unit + integration tests with coverage
         run: pytest --cov --cov-report=term --cov-report=xml --junitxml=junit.xml
       - name: Coverage summary

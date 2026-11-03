@@ -147,7 +147,7 @@ def search(query: str, k: int = 6) -> list[dict]:
         return []
     bm25, files, corpus = _get_bm25(files)
     scores = bm25.get_scores(_tok(query))
-    ranked = sorted(zip(files, corpus, scores), key=lambda x: x[2], reverse=True)[:k]
+    ranked = sorted(zip(files, corpus, scores, strict=True), key=lambda x: x[2], reverse=True)[:k]
     return [{"path": str(f.relative_to(VAULT)), "score": round(float(s), 3),
              "excerpt": c[:400]} for f, c, s in ranked if s > 0]
 

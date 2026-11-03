@@ -48,3 +48,12 @@ async def test_hybrid_search_fuses_both_rankers(pg, vault, fake_embeddings):
     hits = await retrieval.hybrid_search("pgvector index", k=2)
     assert hits[0]["path"] == "infra/db.md"
     assert "rrf" in hits[0]                                                # fused, not BM25-only
+
+
+async def test_a_failed_embedding_keeps_the_old_chunks(pg, vault, fake_embeddings, monkeypatch):
+    note = write_note(vault, "infra/queue.md", "celery redis broker")
+    await index.reindex()
+    note.write_text("celery redis broker, now with retries")
+    monkeypatch.setattr(index.embeddings, "embed_passages", lambda texts: None)   # backend down
+    assert (await index.reindex())["skipped"] == 1
+    assert await pg.fetchval("SELECT count(*) FROM chunks WHERE path='infra/queue.md'") == 1

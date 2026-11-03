@@ -74,9 +74,8 @@ def is_outbound(tool: str, inp: dict | None = None) -> bool:
         return True
     if any(low.endswith(c) for c in _CALENDAR_EVENT):
         return any((inp or {}).get(k) for k in _INVITEE_KEYS)
-    if verbs & (_READ_VERBS | _SAFE_CREATES):
-        return False
-    return True                      # unknown external action → default-deny
+    # unknown external action → default-deny
+    return not verbs & (_READ_VERBS | _SAFE_CREATES)
 
 
 def _describe(tool: str, inp: dict | None) -> str:

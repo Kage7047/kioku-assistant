@@ -98,18 +98,29 @@ python-telegram-bot · rank-bm25 · Langfuse · Docker · Railway.
 ## Repo layout
 
 ```
-docs/                 design docs, build phases, and a reference manual (start at docs/INDEX.md)
+docs/                 design docs and build phases (start at docs/INDEX.md)
+  adr/                architecture decision records — the why behind the main choices
+  security/           threat model
 mockups/              command-center UI mockups (desktop + mobile)
-runner/               local hand-off runner (runs heavy coding tasks on your own machine)
+runner/               local hand-off runner (runs approved coding tasks on your own machine)
 src/kioku/
   config.py           env-driven settings
   api/                FastAPI gateway, SSE relay, static command-center SPA
-  worker/             Celery app + tasks (briefs, watches, digest, self-review, projects)
-  agent/              orchestrator (routing, caps, persona) + tools (vault, calendar, scheduler, hand-off)
-  memory/             schema.sql · vault (fs + BM25) · index/retrieval (pgvector) · claims · people · approvals
+  agent/
+    orchestrator.py   run_agent: one capped, budget-checked, gated session
+    prompts.py        persona prefix, live config, retrieved context (fenced as data)
+    toolsets.py       tool surface per intent, turn caps
+    gate.py           the permission callbacks (outbound approval, approved-call scoping)
+    usage.py          token and cost accounting off the SDK stream
+    router.py         intent, difficulty and verbosity
+    tools/            vault, calendar, scheduler, watches, hand-off
+  memory/             schema.sql · vault (fs + BM25) · index/retrieval (pgvector) · budget · approvals · claims
+  worker/tasks/       Celery tasks by concern: chat, vault_ops, rhythms, agency, awareness, actions
   frontdoor/          Telegram bot + formatting
-  observability/      Langfuse tracing
+tests/                unit (scripted model, no network) and integration (Postgres + Redis)
 ```
+
+Why it is built this way: [`docs/adr/`](docs/adr/README.md).
 
 ## Running it
 
