@@ -113,9 +113,15 @@ async def _llm_classify(text: str) -> str | None:
         opts = ClaudeAgentOptions(model=settings.model_triage, system_prompt=_CLASSIFY_SYS, max_turns=1)
         buf = ""
         async for m in query(prompt=text[:2000], options=opts):
-            t = getattr(m, "text", None) or getattr(m, "content", None)
-            if isinstance(t, str):
-                buf += t
+            # AssistantMessage.content is a list of blocks (TextBlock has .text); the terminal
+            # ResultMessage carries the final text in .result. Reading `.text`/`.content` as a
+            # string (the old code) matched neither, so the classifier silently never ran.
+            content = getattr(m, "content", None)
+            if isinstance(content, list):
+                buf += "".join(b.text for b in content if isinstance(getattr(b, "text", None), str))
+            result = getattr(m, "result", None)
+            if isinstance(result, str) and not buf:
+                buf = result
         intent = json.loads(buf[buf.find("{"): buf.rfind("}") + 1]).get("intent")
         return intent if intent in INTENTS else None
     except Exception:  # noqa: BLE001
