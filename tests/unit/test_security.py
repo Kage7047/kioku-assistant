@@ -112,7 +112,7 @@ def test_t4_calendar_events_are_free_until_they_invite_someone():
 
 # ---- T5: no gate, no external or hand-off tools -------------------------------------------------
 async def test_t5_without_the_permission_api_gated_servers_are_not_mounted(harness, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(O, "_sdk_permission_types", lambda: None)
+    monkeypatch.setattr("kioku.agent.gate._sdk_permission_types", lambda: None)
     q = harness.model(fakes.result("ok"))
     await O.run_agent("r1", "check my calendar and email", intent="plan")
     opts = q.last_options
@@ -122,7 +122,7 @@ async def test_t5_without_the_permission_api_gated_servers_are_not_mounted(harne
 
 
 async def test_t5_an_approved_action_refuses_to_run_without_the_permission_api(harness, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(O, "_sdk_permission_types", lambda: None)
+    monkeypatch.setattr("kioku.agent.gate._sdk_permission_types", lambda: None)
     q = harness.model(fakes.result("sent"))
     out = await O.run_agent("r1", "send it", approved_call={"tool": "mcp__composio__GMAIL_SEND_EMAIL",
                                                              "input": {"to": "a@example.com"}})
