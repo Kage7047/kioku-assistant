@@ -5,6 +5,7 @@ gate.py (what needs the owner's approval) and usage.py (what it cost).
 """
 import asyncio
 import json
+from collections.abc import Callable
 from typing import Any
 
 import redis.asyncio as aioredis
@@ -141,7 +142,7 @@ async def run_agent(run_id: str, prompt: str, difficulty: str = "triage",
     usage_meter = UsageMeter()
 
     async def _consume():
-        source = query
+        source: Callable[..., Any] = query
         if settings.model_backend == "stub":           # demo mode: no SDK, no key (see agent/stub.py)
             from .stub import stub_query
             source = stub_query
