@@ -1,0 +1,22 @@
+# Throwaway services for the integration tests (ports chosen not to clash with a dev stack).
+#   docker compose -f docker-compose.test.yml up -d --wait
+#   pytest -m integration
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment: {POSTGRES_USER: kioku, POSTGRES_PASSWORD: kioku, POSTGRES_DB: kioku_test}
+    ports: ["55432:5432"]
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kioku -d kioku_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    ports: ["56379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
