@@ -84,7 +84,7 @@ async def test_retrieval_context_is_injected_for_vault_intents(harness, monkeypa
     monkeypatch.setattr("kioku.memory.retrieval.hybrid_search", hits)
     q = harness.model(fakes.result("Thursday."))
     await O.run_agent("r1", "when is Anna's appointment?", intent="recall", retrieve_query="Anna appointment")
-    assert "[people/anna.md]" in q.last_prompt
+    assert '<vault_excerpt path="people/anna.md">' in q.last_prompt
     assert q.last_prompt.rstrip().endswith("when is Anna's appointment?")
 
 
@@ -120,13 +120,6 @@ async def test_connector_hint_mounts_external_tools_behind_the_gate(harness):
     assert opts.permission_mode == "default"
     assert callable(opts.can_use_tool)
     assert not any(t.startswith("mcp__composio__") for t in opts.allowed_tools)   # must hit the gate
-
-
-async def test_approved_runs_bypass_the_gate(harness):
-    q = harness.model(fakes.result("sent"))
-    await O.run_agent("r1", "send it", intent="draft", outbound_approved=True)
-    assert q.last_options.permission_mode == "bypassPermissions"
-    assert "mcp__composio__*" in q.last_options.allowed_tools
 
 
 async def test_subagents_only_for_heavy_work(harness):

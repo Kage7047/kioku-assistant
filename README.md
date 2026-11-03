@@ -129,6 +129,22 @@ in [`docs/reference/configuration.md`](docs/reference/configuration.md). Full fi
 walkthrough: [`docs/QUICKSTART.md`](docs/QUICKSTART.md). Managed deploy (Railway services +
 pgvector + Redis + a git-backed vault): [`docs/05-deploy-railway.md`](docs/05-deploy-railway.md).
 
+## Security
+
+An agent that reads email and web pages *will* see injected instructions, so Kioku assumes the model
+can be tricked and limits what a tricked model can do — in code, outside the model:
+
+- **Outbound gate.** Every external action is default-deny: reads and drafts run, anything that sends,
+  shares, deletes, invites or drives a browser is staged for one-tap approval. The gate fails closed.
+- **Scoped approvals.** An approved action runs with exactly the approved tool and arguments, once.
+- **Protected vault zones.** `.git/` is never writable and the `system/` config spine changes only via
+  an approved edit — checked on resolved paths, so `..` and symlinks don't get around it.
+- **Fail-closed API.** Constant-time token check; with no token set, only localhost gets in.
+
+The full threat model — eleven findings, their fixes, and the risks deliberately accepted — is in
+[`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md); each control has a regression test in
+[`tests/unit/test_security.py`](tests/unit/test_security.py). Report issues privately: [`SECURITY.md`](SECURITY.md).
+
 ## Testing
 
 ```bash
