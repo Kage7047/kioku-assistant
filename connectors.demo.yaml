@@ -1,0 +1,3 @@
+# Demo: no external connectors, only Kioku's own metrics.
+connectors:
+  - {name: self, kind: metrics, enabled: true, schedule: 3600}
