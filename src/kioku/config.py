@@ -75,9 +75,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://kioku:kioku@db:5432/kioku"
     redis_url: str = "redis://redis:6379/0"
 
-    # Web command center: a single shared secret gates the dashboard + API once the api
-    # service is exposed publicly. Leave empty to keep auth OFF (safe only while unexposed).
+    # Web command center: a single shared secret gates the dashboard + API. With no token set the API
+    # FAILS CLOSED: only loopback clients (the in-process Telegram bot, a local CLI) get through, unless
+    # allow_unauthenticated is explicitly on — for a throwaway local stack, never for a deployment.
     dashboard_token: str = ""
+    allow_unauthenticated: bool = False
 
     telegram_bot_token: str = ""
     telegram_allowed_user_id: str = ""

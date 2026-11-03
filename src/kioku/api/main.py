@@ -1,3 +1,4 @@
+import hmac
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -41,14 +42,23 @@ app = FastAPI(title="Kioku", lifespan=lifespan)
 _OPEN_PATHS = {"/health", "/", "/favicon.ico"}
 
 
+_LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+
+
+def _presented_token(request: Request) -> str:
+    ah = request.headers.get("authorization", "")
+    given = ah[7:].strip() if ah[:7].lower() == "bearer " else ""
+    # ?token= exists for EventSource (it cannot set headers); prefer the header or the cookie.
+    return given or request.query_params.get("token", "") or request.cookies.get("kioku_token", "")
+
+
 def _token_ok(request: Request) -> bool:
     tok = settings.dashboard_token
     if not tok:
-        return True                                  # auth disabled until a token is set
-    ah = request.headers.get("authorization", "")
-    given = ah[7:].strip() if ah[:7].lower() == "bearer " else ""
-    given = given or request.query_params.get("token", "") or request.cookies.get("kioku_token", "")
-    return given == tok
+        if settings.allow_unauthenticated:
+            return True
+        return bool(request.client and request.client.host in _LOOPBACK)
+    return hmac.compare_digest(_presented_token(request).encode(), tok.encode())   # constant time
 
 
 @app.middleware("http")
@@ -57,7 +67,9 @@ async def _auth(request: Request, call_next):
     if path in _OPEN_PATHS or path.startswith("/static"):
         return await call_next(request)
     if not _token_ok(request):
-        return JSONResponse({"detail": "unauthorized"}, status_code=401)
+        detail = "unauthorized" if settings.dashboard_token else (
+            "unauthorized: set DASHBOARD_TOKEN (or ALLOW_UNAUTHENTICATED=1 for a local-only stack)")
+        return JSONResponse({"detail": detail}, status_code=401)
     return await call_next(request)
 
 
