@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -6,6 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Agent tool): no nesting, at most 4 concurrent sub-agents. Overridable via real env vars.
 os.environ.setdefault("CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH", "1")
 os.environ.setdefault("CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS", "4")
+
+
+_PROCESS_TOKEN = secrets.token_urlsafe(32)
 
 
 class Settings(BaseSettings):
@@ -75,9 +79,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://kioku:kioku@db:5432/kioku"
     redis_url: str = "redis://redis:6379/0"
 
-    # Web command center: a single shared secret gates the dashboard + API once the api
-    # service is exposed publicly. Leave empty to keep auth OFF (safe only while unexposed).
+    # Web command center: a single shared secret gates the dashboard + API. With no token set the API
+    # FAILS CLOSED: it generates a random per-process secret that only the in-process Telegram bot
+    # knows, so nothing outside the process gets in — unless allow_unauthenticated is explicitly on
+    # (a throwaway local stack, never a deployment). Client IP is never trusted: behind a reverse
+    # proxy on the same host every request would look like loopback.
     dashboard_token: str = ""
+    allow_unauthenticated: bool = False
 
     telegram_bot_token: str = ""
     telegram_allowed_user_id: str = ""
@@ -103,6 +111,12 @@ class Settings(BaseSettings):
     bank_api_base: str = ""
     bank_token: str = ""
     bank_allow_transfers: bool = False     # hard-off; even True does nothing (no transfer code exists)
+
+    @property
+    def api_token(self) -> str:
+        """The token the API accepts and in-process clients send: DASHBOARD_TOKEN, else a random
+        secret minted once per process (so an unset token never means an open API)."""
+        return self.dashboard_token or _PROCESS_TOKEN
 
     @property
     def resolved_api_base(self) -> str:

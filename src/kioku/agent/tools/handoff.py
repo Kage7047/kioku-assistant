@@ -12,6 +12,27 @@ def _text(s: str) -> dict:
     return {"content": [{"type": "text", "text": s}]}
 
 
+def site_allowed(site: str, allowed: list[str]) -> bool:
+    """Exact host or a subdomain of an allow-listed host. Accepts a bare host or a URL.
+    Substring checks are unsafe: 'linkedin.com.evil.io' contains 'linkedin.com', and an empty
+    site must never match anything."""
+    from urllib.parse import urlsplit
+
+    def host(s: str) -> str:
+        s = (s or "").strip().lower()
+        h = urlsplit(s if "//" in s else f"//{s}").hostname or ""
+        return h.rstrip(".")
+
+    h = host(site)
+    if not h:
+        return False
+    for a in allowed:
+        ah = host(a)
+        if ah and (h == ah or h.endswith("." + ah)):
+            return True
+    return False
+
+
 @tool("handoff_code",
       "Hand a HEAVY coding task to a Claude Code session on the user's own machine (a SEPARATE Pro "
       "pool at full quality, with access to the owner's LOCAL files) instead of doing it here. Reach for this "
@@ -79,10 +100,11 @@ async def browser_task(args):
     if not allowed:
         return _text("Computer-use is off — no BROWSER_ALLOWED_SITES configured. I'll prepare a draft "
                      "instead; you can do the final web step, or enable an allow-listed site.")
-    if site and not any(site in a or a in site for a in allowed):
-        return _text(f"'{site}' isn't on the browser allow-list ({', '.join(allowed)}). I won't drive a "
+    if not site_allowed(site, allowed):
+        return _text(f"'{site or '(no site given)'}' isn't on the browser allow-list ({', '.join(allowed)}). I won't drive a "
                      "browser off-list — tell me to add it, or I'll draft the step for you.")
-    # This tool is treated as OUTBOUND by the gate, so reaching here means it was already approved:
+    # Never in allowed_tools, so every call passes the outbound gate first: reaching here means it was
+    # approved. The site check below is still enforced (and again by the runner).
     # queue it to the local runner (which enforces its own enable flag + allow-list + commit confirm).
     rec = H.create(goal, "", site, kind="browser")
     return _text(f"Approved browser task queued (id {rec['id']}) for {site or 'the site'}. It runs on your "

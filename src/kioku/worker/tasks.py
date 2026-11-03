@@ -242,9 +242,9 @@ def execute_approved_task(approval_id: str):
                 except Exception:  # noqa: BLE001
                     pass
                 body = (existing.rstrip() + "\n\n" + content + "\n") if existing.strip() else content + "\n"
-                vault.write(path, body)
+                vault.write(path, body, approved=True)        # the owner just approved it
             else:
-                vault.write(path, content if content.endswith("\n") else content + "\n")
+                vault.write(path, content if content.endswith("\n") else content + "\n", approved=True)
             reindex_vault_task.delay([path])
             vaultsync.commit_push(f"self-edit {path}")
             notify(f"🛠 Applied self-improvement to {path} — {rec.get('rationale', '')[:120]} "
@@ -259,8 +259,9 @@ def execute_approved_task(approval_id: str):
         "with these arguments, then report the result in one line. Do nothing else.\n"
         f"tool: {rec['tool']}\narguments (JSON): {json.dumps(rec.get('input', {}), default=str)}\n"
         "If the tool errors, say so plainly.")
-    # outbound_approved=True → bypassPermissions for THIS run (no gate) so the approved call runs.
-    out = run_sync(run_agent(run_id, prompt, "work", essential=True, outbound_approved=True))
+    # approved_call scopes THIS run to exactly the approved tool + arguments, once; nothing else runs.
+    out = run_sync(run_agent(run_id, prompt, "work", essential=True,
+                             approved_call={"tool": rec["tool"], "input": rec.get("input") or {}}))
     if out.get("text"):
         notify(f"✅ Approved action done:\n{out['text'][:1500]}")
     _record_and_notify(run_id, out)

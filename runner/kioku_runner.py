@@ -8,7 +8,7 @@ pings you on Telegram. Nothing runs unless this script is running, so it never n
 always-on.
 
 Setup (env vars):
-  KIOKU_API_URL   Base URL of your Kioku api service, e.g. https://kioku-api.up.railway.app
+  KIOKU_API_URL   Base URL of your Kioku api service, e.g. https://<your-api-service>.up.railway.app
   KIOKU_TOKEN     The DASHBOARD_TOKEN you set on the api service (used as the bearer token).
   KIOKU_REPOS     Semicolon-separated name=path map the runner uses to resolve a hand-off's `repo`,
                   e.g.  kioku=/path/to/kioku;acme=/path/to/acme
@@ -109,6 +109,28 @@ def _sh(cmd: list, cwd: str) -> tuple[str, str]:
     return ("done" if p.returncode == 0 else "error"), (out[:8000] or "(no output)")
 
 
+# Mirrors kioku.agent.tools.handoff.site_allowed — the runner is a standalone script.
+def site_allowed(site: str, allowed: list[str]) -> bool:
+    """Exact host or a subdomain of an allow-listed host. Accepts a bare host or a URL.
+    Substring checks are unsafe: 'linkedin.com.evil.io' contains 'linkedin.com', and an empty
+    site must never match anything."""
+    from urllib.parse import urlsplit
+
+    def host(s: str) -> str:
+        s = (s or "").strip().lower()
+        h = urlsplit(s if "//" in s else f"//{s}").hostname or ""
+        return h.rstrip(".")
+
+    h = host(site)
+    if not h:
+        return False
+    for a in allowed:
+        ah = host(a)
+        if ah and (h == ah or h.endswith("." + ah)):
+            return True
+    return False
+
+
 def _dispatch(rec: dict, cwd: str) -> tuple[str, str]:
     """Route a hand-off to its handler by kind. Runs ONLY registered kinds; refuses anything else."""
     kind = rec.get("kind", "code")
@@ -122,7 +144,7 @@ def _dispatch(rec: dict, cwd: str) -> tuple[str, str]:
         allowed = [s.strip() for s in os.environ.get("KIOKU_BROWSER_ALLOWED_SITES", "").split(",") if s.strip()]
         if not allowed:
             return "error", "no KIOKU_BROWSER_ALLOWED_SITES set — refusing every browser task."
-        if site and not any(site in a or a in site for a in allowed):
+        if not site_allowed(site, allowed):
             return "error", f"site '{site}' is not in KIOKU_BROWSER_ALLOWED_SITES — refused."
         prompt = (f"On the site {site}, do this in the browser: {task}\n"
                   "Preview each step first. STOP and ask for explicit confirmation before ANY "
