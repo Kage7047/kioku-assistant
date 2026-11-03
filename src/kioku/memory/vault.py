@@ -125,28 +125,37 @@ def _tok(s: str) -> list[str]:
 # Cache the BM25 index so we don't re-read + re-tokenize the whole vault on every query
 # (a real cost/latency driver as the vault grows). Rebuild only when files actually change,
 # detected by a cheap signature (count + newest mtime).
-_bm25_cache: dict = {"sig": None, "bm25": None, "files": None, "corpus": None}
+_bm25_cache: dict = {"sig": None, "bm25": None, "files": None, "corpus": None, "bm25_stop": None}
 
 
 def _vault_signature(files: list[Path]) -> tuple[int, int]:
     return (len(files), max((f.stat().st_mtime_ns for f in files), default=0))
 
 
-def _get_bm25(files: list[Path]):
+def _content_tok(s: str) -> list[str]:
+    from .stopwords import STOPWORDS
+    return [t for t in _tok(s) if t not in STOPWORDS]
+
+
+def _get_bm25(files: list[Path], stopwords: bool = False):
     sig = _vault_signature(files)
     if _bm25_cache["sig"] != sig:
         corpus = [f.read_text(encoding="utf-8", errors="ignore") for f in files]
-        _bm25_cache.update(sig=sig, files=files, corpus=corpus,
+        _bm25_cache.update(sig=sig, files=files, corpus=corpus, bm25_stop=None,
                            bm25=BM25Okapi([_tok(c) for c in corpus]))
-    return _bm25_cache["bm25"], _bm25_cache["files"], _bm25_cache["corpus"]
+    if stopwords and _bm25_cache["bm25_stop"] is None:
+        _bm25_cache["bm25_stop"] = BM25Okapi([_content_tok(c) for c in _bm25_cache["corpus"]])
+    key = "bm25_stop" if stopwords else "bm25"
+    return _bm25_cache[key], _bm25_cache["files"], _bm25_cache["corpus"]
 
 
-def search(query: str, k: int = 6) -> list[dict]:
+def search(query: str, k: int = 6, stopwords: bool = False) -> list[dict]:
+    """BM25 over the vault. `stopwords=True` drops function words (used inside hybrid search)."""
     files = _md_files()
     if not files:
         return []
-    bm25, files, corpus = _get_bm25(files)
-    scores = bm25.get_scores(_tok(query))
+    bm25, files, corpus = _get_bm25(files, stopwords)
+    scores = bm25.get_scores((_content_tok if stopwords else _tok)(query))
     ranked = sorted(zip(files, corpus, scores, strict=True), key=lambda x: x[2], reverse=True)[:k]
     return [{"path": str(f.relative_to(VAULT)), "score": round(float(s), 3),
              "excerpt": c[:400]} for f, c, s in ranked if s > 0]
