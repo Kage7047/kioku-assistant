@@ -23,27 +23,57 @@ from ..config import settings
 _r = redis.Redis.from_url(settings.redis_url)
 APPROVAL_TTL = 86400  # a staged action stays approvable for 24h
 
-# Tools that are ALWAYS free — Kioku's own memory, scheduling, watches, the local calendar stubs,
-# and read-only web/search/delegation. These live in allowed_tools and normally never even reach
-# the gate, but we hard-exclude them here too so a loose outbound pattern can never gate them.
+# Kioku's OWN tools — memory, scheduling, watches, the local calendar stubs — plus read-only
+# web/search/delegation. Always free.
 _NEVER_GATE_PREFIX = ("mcp__vault__", "mcp__scheduler__", "mcp__watch__", "mcp__calendar__")
 _NEVER_GATE_EXACT = {"websearch", "webfetch", "agent", "todowrite"}
 
-# Name fragments that mean an OUTBOUND / irreversible-in-the-world action. Matched case-insensitively
-# against the tool name. Deliberately tight: creating a DRAFT (GMAIL_CREATE_EMAIL_DRAFT) or a calendar
-# event (GOOGLECALENDAR_CREATE_EVENT) contains none of these → stays free (calendar create/update is
-# auto per the playbook); SEND / DELETE / TRASH do → they gate.
-_OUTBOUND_FRAGMENTS = ("send", "delete", "trash", "remove", "post", "publish", "transfer", "revoke",
-                       "browser")   # browser_task (Phase 4.7 computer-use) is gated hardest
+# Hand-off tools reach the owner's own machine. handoff_code runs an open-ended Claude Code session
+# with access to local files, scaffold writes code, browser_task drives a real browser: all gated.
+# run_tests / lint / index_repo / review_diff are bounded, read-mostly commands the runner allow-lists.
+_HANDOFF_GATED = {"mcp__handoff__handoff_code", "mcp__handoff__browser_task"}
+_HANDOFF_GATED_KINDS = {"scaffold"}
+
+# External connector tools (Composio, remote MCP) are DEFAULT-DENY. A name-based deny-list misses
+# whatever it didn't think of — GMAIL_REPLY_TO_THREAD, GMAIL_FORWARD_MESSAGE, SLACK_INVITE_USER and
+# GITHUB_CREATE_ISSUE_COMMENT contain no "send"/"post"/"delete" yet all act on the world. So an
+# external tool runs freely only if its action is clearly read-only or creates a draft; anything
+# unrecognised is staged for approval. Write verbs win over read verbs (SEND_DRAFT is gated).
+_WRITE_VERBS = {"send", "reply", "forward", "delete", "trash", "remove", "post", "publish", "share",
+                "transfer", "pay", "revoke", "invite", "comment", "tweet", "submit", "merge",
+                "archive", "move", "browser", "upload", "push", "approve", "accept", "decline"}
+_READ_VERBS = {"get", "list", "search", "fetch", "find", "read", "query", "lookup", "describe",
+               "retrieve", "download", "count", "check", "view", "export", "batch_get"}
+_SAFE_CREATES = {"draft"}            # drafting is the whole point: the human sends it later
+# A calendar event is free to create/update unless it invites someone (that emails real people).
+_CALENDAR_EVENT = ("calendar_create_event", "calendar_update_event", "calendar_quick_add")
+_INVITEE_KEYS = ("attendees", "guests", "invitees", "attendee_emails", "send_updates", "sendUpdates")
 
 
-def is_outbound(tool: str, _input: dict | None = None) -> bool:
+def _verbs(tool: str) -> set[str]:
+    action = tool.split("__")[-1].lower()
+    return set(action.replace("-", "_").split("_"))
+
+
+def is_outbound(tool: str, inp: dict | None = None) -> bool:
+    """True if this tool call must stop for the owner's approval."""
     low = (tool or "").lower()
-    if low in _NEVER_GATE_EXACT:
+    if low in _NEVER_GATE_EXACT or any(low.startswith(p) for p in _NEVER_GATE_PREFIX):
         return False
-    if any(low.startswith(p) for p in _NEVER_GATE_PREFIX):
+    if low.startswith("mcp__handoff__"):
+        if low in _HANDOFF_GATED:
+            return True
+        return low == "mcp__handoff__dev_task" and (inp or {}).get("kind") in _HANDOFF_GATED_KINDS
+    if not low.startswith("mcp__"):
+        return False                 # remaining built-ins are either read-only or disallowed outright
+    verbs = _verbs(low)
+    if verbs & _WRITE_VERBS:
+        return True
+    if any(low.endswith(c) for c in _CALENDAR_EVENT):
+        return any((inp or {}).get(k) for k in _INVITEE_KEYS)
+    if verbs & (_READ_VERBS | _SAFE_CREATES):
         return False
-    return any(frag in low for frag in _OUTBOUND_FRAGMENTS)
+    return True                      # unknown external action → default-deny
 
 
 def _describe(tool: str, inp: dict | None) -> str:
@@ -67,7 +97,7 @@ def stage(tool: str, inp: dict | None, run_id: str | None = None) -> dict:
     aid = hashlib.sha256((blob + str(ts)).encode()).hexdigest()[:12]
     rec = {"id": aid, "tool": tool, "input": inp or {}, "run_id": run_id, "ts": ts,
            "desc": _describe(tool, inp)}
-    _r.setex(f"approval:{aid}", APPROVAL_TTL, json.dumps(rec, default=str))
+    _r.set(f"approval:{aid}", json.dumps(rec, default=str), ex=APPROVAL_TTL)
     try:
         from ..frontdoor.notify import notify
         notify("🔐 Approval needed — I want to run an OUTBOUND action:\n"
@@ -90,7 +120,7 @@ def stage_config_edit(path: str, content: str, rationale: str, mode: str = "appe
     rec = {"id": aid, "kind": "config-edit", "path": path, "content": content, "mode": mode,
            "rationale": rationale, "run_id": run_id, "ts": ts,
            "desc": f"self-edit ({mode}) → {path}: {rationale[:100]}"}
-    _r.setex(f"approval:{aid}", APPROVAL_TTL, json.dumps(rec, default=str))
+    _r.set(f"approval:{aid}", json.dumps(rec, default=str), ex=APPROVAL_TTL)
     try:
         from ..frontdoor.notify import notify
         notify(f"🛠 Self-improvement proposed:\n{rec['desc']}\n"
@@ -100,15 +130,23 @@ def stage_config_edit(path: str, content: str, rationale: str, mode: str = "appe
     return rec
 
 
+MIN_PREFIX = 6
+
+
 def _resolve_key(aid: str) -> str | None:
-    """Accept a full 12-char id or a prefix (so a Telegram '/approve <first 8>' works)."""
+    """Accept a full 12-char id or a UNIQUE prefix of at least MIN_PREFIX chars (so a Telegram
+    '/approve <first 8>' works). Too short or ambiguous → None, never "the first match"."""
+    aid = (aid or "").strip()
+    if len(aid) < MIN_PREFIX:
+        return None
     if _r.exists(f"approval:{aid}"):
         return f"approval:{aid}"
+    matches = []
     for key in _r.scan_iter("approval:*"):
         k = key.decode() if isinstance(key, bytes) else key
         if k.split(":", 1)[1].startswith(aid):
-            return k
-    return None
+            matches.append(k)
+    return matches[0] if len(matches) == 1 else None
 
 
 def get(aid: str) -> dict | None:
