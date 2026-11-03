@@ -49,11 +49,14 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - name: Install
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
       - name: Unit + integration tests with coverage
         run: pytest --cov --cov-report=term --cov-report=xml --junitxml=junit.xml
       - name: Coverage summary
-        if: always()
+        if: always() && hashFiles('coverage.xml') != ''
         run: |
           python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
           import xml.etree.ElementTree as ET
