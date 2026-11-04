@@ -111,6 +111,28 @@ jobs:
           git add badges/coverage.svg && git commit -qm "coverage badge for ${GITHUB_SHA::7}"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
 
+  web:
+    # The command center is a Vite build committed to src/kioku/api/static (so a pip install or the
+    # Docker image needs no Node). CI rebuilds it and fails if the committed build is stale.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
+      - name: Committed build matches the source
+        run: |
+          changed=$(git status --porcelain -- ../src/kioku/api/static)
+          if [ -n "$changed" ]; then echo "$changed"; echo "Run 'npm run build' in web/ and commit the result."; exit 1; fi
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

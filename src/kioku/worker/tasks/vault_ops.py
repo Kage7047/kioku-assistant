@@ -228,7 +228,7 @@ def digest_batch_task(limit: int = 12, chain: bool = True):
     inv = vault.audit_inventory()
     db.record_signal_sync("self", "vault.health",
                           {"files": inv["file_count"], "orphans": inv["orphan_count"],
-                           "dead_links": inv["dead_link_count"]})
+                           "dead_links": inv["dead_link_count"], "by_dir": inv["by_dir"]})
 
     remaining = len(digest.find_undigested(9999))
     # If a whole batch digested NOTHING (classify failing, model erroring) the notes never get
