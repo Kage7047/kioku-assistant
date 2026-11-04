@@ -11,3 +11,4 @@ vault/
 coverage.xml
 junit.xml
 !examples/vault/
+web/node_modules/

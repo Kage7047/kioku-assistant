@@ -32,7 +32,7 @@ def self_heal_task():
     digest_batch_task.delay(limit=12, chain=True)         # churn through the whole backlog nightly
     db.record_signal_sync("self", "vault.health",
                           {"files": inv["file_count"], "orphans": inv["orphan_count"],
-                           "dead_links": inv["dead_link_count"]})
+                           "dead_links": inv["dead_link_count"], "by_dir": inv["by_dir"]})
     # Phase 4.2 — refresh the model-of-you rhythm from the runs table (deterministic, free).
     try:
         from ...memory import patterns
