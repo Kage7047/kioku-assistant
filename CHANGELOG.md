@@ -35,6 +35,7 @@ First tagged release of the reference implementation.
 - The intent classifier never parsed the SDK's replies; ambiguous messages always became "recall".
 - A failed embedding call silently dropped a note from semantic search.
 - The CLI never sent the dashboard token.
+- Vite 7.3.7 for the command center build (12 dev-server advisories; none reach the shipped bundle).
 
 ### Changed
 - Default model tiers: `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-1`.
