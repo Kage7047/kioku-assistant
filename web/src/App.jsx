@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { gsap } from 'gsap'
 import { useGSAP } from '@gsap/react'
 import { api, getToken, onTokenChange, setToken } from './lib/api'
@@ -21,6 +21,15 @@ const useToken = () => useSyncExternalStore(onTokenChange, getToken, () => '')
 
 export default function App() {
   const token = useToken()
+  const [rejected, setRejected] = useState(false)
+  if (!token || rejected) {
+    return <TokenGate failed={rejected} onSubmit={(t) => { setRejected(false); setToken(t) }} />
+  }
+  return <Dashboard key={token} onUnauthorized={() => setRejected(true)} />
+}
+
+function Dashboard({ onUnauthorized }) {
+  const token = useToken()
   const status = usePoll(() => api('/status'), 8000, [token])
   const runs = usePoll(() => api('/runs?limit=8'), 4000, [token])
   const reduced = useReducedMotionState()
@@ -33,13 +42,12 @@ export default function App() {
   }, [reduced])
 
   useGSAP(() => {
-    if (reducedMotion() || !status.data) return
+    if (reducedMotion() || !status.data || !root.current) return
     gsap.from('.panel', { y: 24, autoAlpha: 0, duration: 0.7, ease: 'power3.out', stagger: 0.06 })
   }, { scope: root, dependencies: [!!status.data] })
 
-  if (status.unauthorized || runs.unauthorized) {
-    return <TokenGate onSubmit={(t) => setToken(t)} failed={!!token} />
-  }
+  const unauthorized = status.unauthorized || runs.unauthorized
+  useEffect(() => { if (unauthorized) onUnauthorized() }, [unauthorized, onUnauthorized])
 
   const refreshAll = () => { status.refresh(); runs.refresh() }
 

@@ -2,7 +2,9 @@ import { ago } from '../lib/format'
 import Panel from './Panel'
 
 export default function Activity({ status }) {
-  const conns = status?.connectors || []
+  const all = status?.connectors || []
+  const conns = all.filter((c) => c.state !== 'off')
+  const off = all.filter((c) => c.state === 'off').map((c) => c.name)
   const sched = status?.schedules || []
   const v = status?.vault
   return (
@@ -19,6 +21,7 @@ export default function Activity({ status }) {
             <span className="when">{c.last_seen ? ago(c.last_seen) : '—'}</span>
           </li>
         ))}
+        {off.length > 0 && <li><span className="ico off" /> {off.length} not connected: {off.join(', ')}</li>}
         {!status && <li className="empty">Loading…</li>}
       </ul>
     </Panel>

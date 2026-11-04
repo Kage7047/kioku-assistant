@@ -94,7 +94,7 @@ export default function Conversation({ onRun }) {
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
         <input ref={file} type="file" hidden multiple onChange={(e) => { upload([...e.target.files]); e.target.value = '' }} />
         <button type="button" className="btn icon" aria-label="Attach a file" onClick={() => file.current?.click()}>＋</button>
-        <ClickSpark sparkColor="#f0a43a" sparkCount={10} sparkRadius={22}>
+        <ClickSpark sparkColor="#f0a43a" sparkCount={10} sparkRadius={22} style={{ width: "auto", height: "auto" }}>
           <button type="submit" className="btn primary" disabled={busy}>{busy ? '…' : 'Send ↵'}</button>
         </ClickSpark>
       </form>

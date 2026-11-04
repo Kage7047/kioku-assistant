@@ -15,7 +15,7 @@ export const onTokenChange = (cb) => (listeners.add(cb), () => listeners.delete(
 export class Unauthorized extends Error {}
 
 export async function api(path, opts = {}) {
-  const headers = { ...(opts.headers || {}) }
+  const headers = { ...opts.headers }
   const tok = getToken()
   if (tok) headers.Authorization = `Bearer ${tok}`
   if (opts.json !== undefined) {

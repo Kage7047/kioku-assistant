@@ -86,7 +86,8 @@ button, input, textarea { font: inherit; color: inherit; }
 .caret { display: inline-block; width: 8px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .composer { display: flex; gap: 8px; margin-top: 14px; border: 1px solid var(--line-2); border-radius: 14px; padding: 6px; background: var(--bg); }
-.composer textarea { flex: 1; resize: none; border: 0; background: transparent; padding: 8px 10px; outline: none; min-height: 40px; max-height: 160px; }
+.composer > div { flex: none; display: flex; }
+.composer textarea { flex: 1; min-width: 0; resize: none; border: 0; background: transparent; padding: 8px 10px; outline: none; min-height: 40px; max-height: 160px; }
 .btn { border: 1px solid var(--line-2); background: transparent; border-radius: 10px; padding: 8px 14px; cursor: pointer; font: 12px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
@@ -134,7 +135,9 @@ button, input, textarea { font: inherit; color: inherit; }
 .feed .ico.off { background: var(--faint); }
 .skills { grid-area: skills; }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag { font: 12px var(--mono); border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 11px; color: var(--muted); }
+.tag { font: 12px var(--mono); border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 11px; color: var(--muted); background: transparent; }
+button.tag { cursor: pointer; color: var(--text); }
+button.tag:hover { border-color: var(--accent); color: var(--accent); }
 .tag b { color: var(--text); font-weight: 500; }
 
 /* ---- brain ---- */

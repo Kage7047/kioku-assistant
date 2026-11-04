@@ -14,7 +14,7 @@ export default function LiveRuns({ runs }) {
   useGSAP(() => {
     if (!runs || reducedMotion()) return
     const fresh = runs.filter((r) => !seen.current.has(r.id)).map((r) => `[data-run="${r.id}"]`)
-    if (seen.current.size && fresh.length) gsap.from(fresh.join(','), { x: -12, autoAlpha: 0, duration: 0.45, stagger: 0.05 })
+    if (seen.current.size && fresh.length && list.current) gsap.from(fresh.join(','), { x: -12, autoAlpha: 0, duration: 0.45, stagger: 0.05 })
     runs.forEach((r) => seen.current.add(r.id))
   }, { scope: list, dependencies: [runs] })
 

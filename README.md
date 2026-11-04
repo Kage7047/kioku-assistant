@@ -11,7 +11,7 @@ approval model, and reaches you through Telegram, a web command center, or an AP
 [![ci](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 [![coverage](https://raw.githubusercontent.com/Kage7047/kioku-assistant/badges/badges/coverage.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 
-![Kioku command center](assets/command-center-desktop.png)
+![Kioku command center](assets/command-center.png)
 
 > This is a portfolio/reference implementation of a single-user assistant. The design,
 > architecture, and full build log live in [`docs/`](docs/INDEX.md). The owner's private
@@ -203,6 +203,8 @@ A Vite + React app ([`web/`](web/README.md)) built into the API's static folder 
 same-origin — chat with live streaming, runs, agent credit, the approval inbox, activity, a living
 knowledge graph of the vault, skills and people. GSAP drives the motion, Lenis the scrolling,
 React Bits supplies the cards and micro-interactions; it respects reduce-motion and works on a phone.
+
+<p align="center"><img src="assets/command-center-mobile.png" alt="Kioku command center on a phone" width="280"></p>
 
 ## Design principles
 
