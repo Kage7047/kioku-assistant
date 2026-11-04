@@ -1,6 +1,6 @@
 [project]
 name = "kioku"
-version = "0.0.1"
+version = "0.1.0"
 description = "Private agentic personal assistant — cloud brain, local hands."
 requires-python = ">=3.12"
 dependencies = [
