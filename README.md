@@ -11,7 +11,9 @@ approval model, and reaches you through Telegram, a web command center, or an AP
 [![ci](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 [![coverage](https://raw.githubusercontent.com/Kage7047/kioku-assistant/badges/badges/coverage.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 
-![Kioku command center](assets/command-center.png)
+![Kioku command center: ask a question, the answer streams in from the vault](assets/demo.gif)
+
+<sub>The demo (`make demo`): real stack, stub model, fictional vault.</sub>
 
 > This is a portfolio/reference implementation of a single-user assistant. The design,
 > architecture, and full build log live in [`docs/`](docs/INDEX.md). The owner's private
@@ -204,7 +206,10 @@ same-origin — chat with live streaming, runs, agent credit, the approval inbox
 knowledge graph of the vault, skills and people. GSAP drives the motion, Lenis the scrolling,
 React Bits supplies the cards and micro-interactions; it respects reduce-motion and works on a phone.
 
-<p align="center"><img src="assets/command-center-mobile.png" alt="Kioku command center on a phone" width="280"></p>
+<p align="center">
+  <img src="assets/command-center.png" alt="Kioku command center on a desktop" width="72%">
+  <img src="assets/command-center-mobile.png" alt="Kioku command center on a phone" width="24%">
+</p>
 
 ## Design principles
 
