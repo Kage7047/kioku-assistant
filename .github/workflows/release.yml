@@ -1,0 +1,77 @@
+name: release
+
+# Push a tag like v0.1.0 to publish:
+#   - a container image at ghcr.io/<owner>/kioku-assistant:<version> (+ :latest)
+#     with an SBOM and SLSA build provenance attached, signed keylessly with cosign
+#   - a GitHub release whose notes are that version's section of CHANGELOG.md
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # push to GHCR
+      id-token: write        # keyless cosign signing (Sigstore OIDC)
+      attestations: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.licenses=MIT
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          sbom: true
+          provenance: mode=max
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign the image (keyless)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ghcr.io/${{ github.repository }}
+        run: cosign sign --yes "${IMAGE,,}@${DIGEST}"
+
+  github-release:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Notes from CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {if (on) exit} on' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "No CHANGELOG.md section for $version"; exit 1; }
+          printf '\n**Image:** `ghcr.io/%s:%s` (signed with cosign; SBOM and provenance attached)\n' \
+            "${GITHUB_REPOSITORY,,}" "$version" >> notes.md
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file notes.md --verify-tag

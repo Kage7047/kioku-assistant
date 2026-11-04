@@ -9,6 +9,7 @@ approval model, and reaches you through Telegram, a web command center, or an AP
 ![Python](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Status](https://img.shields.io/badge/status-reference%20implementation-purple.svg)
 [![ci](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/Kage7047/kioku-assistant?color=f0a43a)](CHANGELOG.md)
 [![coverage](https://raw.githubusercontent.com/Kage7047/kioku-assistant/badges/badges/coverage.svg)](https://github.com/Kage7047/kioku-assistant/actions/workflows/ci.yml)
 
 ![Kioku command center: ask a question, the answer streams in from the vault](assets/demo.gif)
@@ -135,6 +136,17 @@ Everything except the model is real: API, worker, Postgres + pgvector, Redis, ro
 the budget guard and the outbound gate. Details in [`docs/DEMO.md`](docs/DEMO.md).
 
 ## Running it
+
+Released images are on GHCR, signed with cosign (keyless) and shipped with an SBOM:
+
+```bash
+docker pull ghcr.io/kage7047/kioku-assistant:0.1.0
+cosign verify ghcr.io/kage7047/kioku-assistant:0.1.0 \
+  --certificate-identity-regexp 'https://github.com/Kage7047/kioku-assistant/.github/workflows/release.yml@.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+From source:
 
 Requires Docker. Kioku authenticates against a Claude subscription's agent credit via an OAuth
 token (`claude setup-token`) — **do not** set `ANTHROPIC_API_KEY`, which would silently bill
